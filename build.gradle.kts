@@ -1,9 +1,12 @@
 plugins {
     kotlin("jvm") version "1.4.10"
     `java-library`
-	`maven-publish`
+    `maven-publish`
     id("com.github.ben-manes.versions") version "0.33.0"
 }
+
+group = "marais"
+version = "0.1.0"
 
 repositories {
     mavenLocal()
@@ -14,18 +17,15 @@ repositories {
 dependencies {
     implementation(platform(kotlin("bom")))
     implementation(kotlin("stdlib-jdk8"))
-	
-	
-	implementation("com.squareup.okio:okio:2.8.0")
-	
+
+
+    implementation("com.squareup.okio:okio:2.8.0")
+
     // Use the Kotlin test library.
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     // Use the Kotlin JUnit integration.
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
 }
-
-group = "marais"
-version = "0.1.0"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -47,11 +47,11 @@ tasks {
     test {
         useJUnitPlatform()
     }
-	
+
     jar {
         manifest {
             attributes(
-                "Automatic-Module-Name" to "marais.filet"
+                    "Automatic-Module-Name" to "marais.filet"
             )
         }
     }
