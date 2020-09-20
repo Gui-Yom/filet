@@ -18,13 +18,13 @@ dependencies {
     implementation(platform(kotlin("bom")))
     implementation(kotlin("stdlib-jdk8"))
 
-
     implementation("com.squareup.okio:okio:2.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.9")
 
     // Use the Kotlin test library.
     testImplementation("org.jetbrains.kotlin:kotlin-test")
-    // Use the Kotlin JUnit integration.
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.7.0")
 }
 
 java {
