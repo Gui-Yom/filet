@@ -2,8 +2,9 @@ package marais.filet
 
 import kotlinx.coroutines.runBlocking
 import marais.filet.pipeline.impl.DummyModule
+import marais.filet.pipeline.impl.EncryptionModule
 import marais.filet.pipeline.impl.Pipeline
-import marais.filet.transport.DummyTransport
+import marais.filet.transport.impl.DummyTransport
 import java.io.DataOutputStream
 import kotlin.test.Test
 
@@ -19,6 +20,7 @@ object TestClient {
                 }
             }
         }
+        client.register(EncryptionModule.EncryptedPacket to EncryptionModule.EncryptedPacket)
         client.start(DummyTransport.Client, this)
         client.transmit {
             sendPacket(DummyPacket())

@@ -12,15 +12,15 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 class Client(val scope: CoroutineScope, private val module: Module, private val onReceive: (Packet) -> Unit) {
 
-    private val queue = PriorityChannel(Comparator.comparingInt(Packet::priority).reversed())
+    private val queue = PriorityChannel(Comparator.comparingInt { it: Pair<Packet, ByteBuffer> -> it.first.priority }.reversed())
     private val nextTransmissionId = AtomicInteger(0)
     private var transport: ClientTransport? = null
-    private val buffer: ByteBuffer = ByteBuffer.allocate(8192)
 
     fun start(transport: ClientTransport) {
         this.transport = transport
         scope.launch {
             while (true) {
+                // TODO remake read since we don't know the size in advance
                 val packet = transport.readBytes()
                 module.processIn(packet)
                 onReceive(packet)
@@ -28,10 +28,11 @@ class Client(val scope: CoroutineScope, private val module: Module, private val 
         }
         scope.launch {
             while (true) {
-                val packet = queue.receive()
-                packet.writeTo(ByteBufferOutputStream(buffer))
-                transport.writeBytes(buffer)
-                buffer.reset()
+                val (packet, buf) = queue.receive()
+                val position = buf.position()
+                buf.reset()
+                buf.limit(position)
+                transport.writeBytes(buf)
             }
         }
     }
@@ -45,7 +46,12 @@ class Client(val scope: CoroutineScope, private val module: Module, private val 
             scope.launch {
                 if (packet.transmission == null)
                     packet.transmission = nextTransmissionId.getAndIncrement()
-                queue.send(module.processOut(packet))
+                // TODO use a backbuffer
+                // TODO use OKIO
+                // TODO use a buffer pool
+                val buffer = ByteBuffer.allocate(Packet.MAX_PACKET_SIZE * 2)
+                packet.writeTo(buffer)
+                queue.send(module.processOut(packet, buffer))
             }
         }
     }

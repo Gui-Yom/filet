@@ -1,6 +1,7 @@
 package marais.filet.pipeline.impl
 
 import marais.filet.Packet
+import marais.filet.PacketReader
 import marais.filet.pipeline.Module
 import java.io.DataOutputStream
 import java.nio.ByteBuffer
@@ -22,7 +23,9 @@ class EncryptionModule : Module {
             output.writeInt(buffer.position())
             output.write(buffer.array(), 0, buffer.position())
         }
-    }
 
-    companion object Reader
+        companion object Reader : PacketReader<EncryptedPacket>({
+
+        })
+    }
 }

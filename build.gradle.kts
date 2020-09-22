@@ -20,6 +20,7 @@ dependencies {
 
     implementation("com.squareup.okio:okio:2.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.9")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.3.9")
 
     // Use the Kotlin test library.
     testImplementation("org.jetbrains.kotlin:kotlin-test")
