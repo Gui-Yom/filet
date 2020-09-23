@@ -1,6 +1,5 @@
 package marais.filet.transport.impl
 
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.withContext
@@ -99,7 +98,7 @@ object TcpTransport {
         }
     }
 
-    class Server(val addr: SocketAddress, val scope: CoroutineScope) : ServerTransport {
+    class Server(val addr: SocketAddress) : ServerTransport {
 
         val server = AsynchronousServerSocketChannel.open()
 

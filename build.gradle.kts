@@ -1,7 +1,10 @@
+import java.net.URL
+
 plugins {
     kotlin("jvm") version "1.4.10"
     `java-library`
     `maven-publish`
+    id("org.jetbrains.dokka") version "1.4.10"
     id("com.github.ben-manes.versions") version "0.33.0"
 }
 
@@ -54,6 +57,20 @@ tasks {
             attributes(
                     "Automatic-Module-Name" to "marais.filet"
             )
+        }
+    }
+
+    dokkaHtml {
+        dokkaSourceSets.configureEach {
+            skipEmptyPackages.set(true)
+            platform.set(org.jetbrains.dokka.Platform.jvm)
+            includes.from("src/main/doc/extras.md")
+            jdkVersion.set(11)
+            sourceLink {
+                remoteUrl.set(URL("https://github.com/Gui-Yom/filet/blob/master/src/main/kotlin"))
+                // For GitHub
+                remoteLineSuffix.set("#L")
+            }
         }
     }
 

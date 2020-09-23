@@ -5,13 +5,13 @@ import marais.filet.pipeline.impl.DummyModule
 import marais.filet.pipeline.impl.EncryptionModule
 import marais.filet.pipeline.impl.Pipeline
 import marais.filet.transport.impl.DummyTransport
-import java.io.DataOutputStream
+import java.nio.ByteBuffer
 import kotlin.test.Test
 
 object TestClient {
 
     @Test
-    fun `nickel miguel`() = runBlocking {
+    fun `test client dsl`() = runBlocking {
 
         val client = Client(Pipeline(DummyModule)) {
             when (it.packetId.toInt()) {
@@ -27,14 +27,14 @@ object TestClient {
         }
     }
 
-    class DummyPacket : Packet(0, 0) {
-        override fun serializeData(output: DataOutputStream) {
-            TODO("Not yet implemented")
+    class DummyPacket(val a: Int = 0) : Packet(0, 0) {
+        override fun serializeData(buffer: ByteBuffer): Int {
+            buffer.putInt(a)
+            return 4
         }
 
-        override fun dataLength(): Int {
-            TODO("Not yet implemented")
-        }
-
+        companion object Reader : PacketReader<DummyPacket>({
+            DummyPacket(readInt())
+        })
     }
 }

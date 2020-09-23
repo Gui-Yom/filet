@@ -6,6 +6,12 @@ import kotlinx.coroutines.selects.SelectClause1
 import kotlinx.coroutines.selects.SelectClause2
 import java.util.concurrent.PriorityBlockingQueue
 
+/**
+ * [Channel] implementation of a [java.util.PriorityQueue] since [kotlin developers do not even care](https://github.com/Kotlin/kotlinx.coroutines/issues/238).
+ *
+ * @see PriorityBlockingQueue
+ * @see Channel
+ */
 internal class PriorityChannel<E>(comparator: Comparator<E>) : Channel<E> {
 
     private val queue = PriorityBlockingQueue(16, comparator)

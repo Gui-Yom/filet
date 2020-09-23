@@ -10,7 +10,10 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * Manage a connection to a server.
  */
-class Client(val scope: CoroutineScope, private val module: Module, private val onReceive: (Packet) -> Unit) {
+class Client(val scope: CoroutineScope,
+             private val module: Module,
+             private val readers: Map<Packet, PacketReader<Packet>>,
+             private val onReceive: (Packet) -> Unit) {
 
     private val queue = PriorityChannel(Comparator.comparingInt { it: Pair<Packet, ByteBuffer> -> it.first.priority }.reversed())
     private val nextTransmissionId = AtomicInteger(0)
@@ -20,10 +23,19 @@ class Client(val scope: CoroutineScope, private val module: Module, private val 
         this.transport = transport
         scope.launch {
             while (true) {
-                // TODO remake read since we don't know the size in advance
-                val packet = transport.readBytes()
-                module.processIn(packet)
-                onReceive(packet)
+                // TODO okio, terrible buffer allocation and copies
+                val header = ByteBuffer.allocate(4 + 1 + 4)
+                transport.readBytes(header)
+                val size = header.getInt(5)
+                header.reset()
+                val data = ByteBuffer.allocate(size)
+                transport.readBytes(data)
+                val total = ByteBuffer.allocate(4 + 1 + 4 + size).put(header).put(data)
+
+                val reader = readers.get(header[4])
+                require(reader != null)
+                val (newPacket, buf) = module.processIn(reader.read(total), total)
+                onReceive(newPacket)
             }
         }
         scope.launch {
