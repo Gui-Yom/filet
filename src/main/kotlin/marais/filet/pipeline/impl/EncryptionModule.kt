@@ -1,31 +1,35 @@
 package marais.filet.pipeline.impl
 
-import marais.filet.Packet
-import marais.filet.PacketReader
+import marais.filet.AbstractPacketSerializer
+import marais.filet.pipeline.Context
 import marais.filet.pipeline.Module
-import java.io.DataOutputStream
 import java.nio.ByteBuffer
 
 class EncryptionModule : Module {
 
-    override fun processIn(packet: Packet): Packet {
-        return packet
+    override fun processIn(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer> {
+        TODO("Not yet implemented")
     }
 
-    override fun processOut(packet: Packet): Packet {
-        return EncryptedPacket(packet)
+    override fun processOut(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer> {
+        return EncryptedPacket(obj) to buf
     }
 
-    class EncryptedPacket(packet: Packet) : Packet(-1) {
-        override fun serializeData(output: DataOutputStream) {
-            val buffer = ByteBuffer.allocate(1000000)
-            //
-            output.writeInt(buffer.position())
-            output.write(buffer.array(), 0, buffer.position())
+    class EncryptedPacket(obj: Any) : AbstractPacketSerializer<EncryptedPacket>(-1) {
+
+        override fun read(buffer: ByteBuffer): EncryptedPacket {
+            val size = buffer.int
+            // TODO AES decryption
+            return EncryptedPacket("")
         }
 
-        companion object Reader : PacketReader<EncryptedPacket>({
+        override fun writeData(obj: EncryptedPacket, buffer: ByteBuffer): Int {
+            // TODO AES encryption
+            buffer.putInt(0)
+            buffer.put(buffer.array(), 0, buffer.position())
+            return 4
+        }
 
-        })
+        override fun getPacketClass(): Class<EncryptedPacket> = EncryptedPacket::class.java
     }
 }

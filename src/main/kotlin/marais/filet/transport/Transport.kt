@@ -20,11 +20,6 @@ interface ClientTransport : Closeable {
      * Reads up to buffer.limit() bytes
      */
     suspend fun readBytes(buffer: ByteBuffer): Int
-
-    /**
-     * Reads one byte
-     */
-    suspend fun readByte(): Byte
 }
 
 /**

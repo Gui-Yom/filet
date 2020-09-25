@@ -1,15 +1,16 @@
 package marais.filet.pipeline.impl
 
-import marais.filet.Packet
+import marais.filet.pipeline.Context
 import marais.filet.pipeline.Module
+import java.nio.ByteBuffer
 
 object SoutModule : Module {
-    override fun processIn(packet: Packet): Packet {
-        println("received : ${packet.packetId}, ${packet.priority}")
-        return packet
+    override fun processIn(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer> {
+        println("received : ${ctx.packetId}, ${ctx.priority}")
+        return obj to buf
     }
 
-    override fun processOut(packet: Packet): Packet {
-        return packet
+    override fun processOut(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer> {
+        return obj to buf
     }
 }

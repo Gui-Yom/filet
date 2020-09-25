@@ -31,8 +31,8 @@ object TcpTransport {
         }
 
         init {
-            channel.setOption(StandardSocketOptions.SO_SNDBUF, 8192)
-            channel.setOption(StandardSocketOptions.SO_RCVBUF, 8192)
+            channel.setOption(StandardSocketOptions.SO_SNDBUF, 32768)
+            channel.setOption(StandardSocketOptions.SO_RCVBUF, 32768)
         }
 
         override suspend fun init() {
@@ -51,50 +51,36 @@ object TcpTransport {
             return channel.read0(buffer)
         }
 
-        override suspend fun readByte(): Byte {
-            val buffer = ByteBuffer.allocate(1)
-            channel.read0(buffer)
-            return buffer.get()
-        }
-
         override fun close() {
             channel.close()
         }
 
         suspend fun AsynchronousSocketChannel.read0(buffer: ByteBuffer): Int = suspendCoroutine { continuation ->
-            read(buffer, continuation, object : CompletionHandler<Int, Continuation<Int>> {
-                override fun completed(result: Int, attachment: Continuation<Int>) {
-                    attachment.resume(result)
-                }
-
-                override fun failed(exc: Throwable, attachment: Continuation<Int>) {
-                    attachment.resumeWithException(exc)
-                }
-            })
+            read(buffer, continuation, CompletionToContinuation())
         }
 
         suspend fun AsynchronousSocketChannel.write0(buffer: ByteBuffer): Int = suspendCoroutine { continuation ->
-            write(buffer, continuation, object : CompletionHandler<Int, Continuation<Int>> {
-                override fun completed(result: Int, attachment: Continuation<Int>) {
-                    attachment.resume(result)
-                }
-
-                override fun failed(exc: Throwable, attachment: Continuation<Int>) {
-                    attachment.resumeWithException(exc)
-                }
-            })
+            write(buffer, continuation, CompletionToContinuation())
         }
 
         suspend fun AsynchronousSocketChannel.connect0(addr: SocketAddress): Unit = suspendCoroutine { continuation ->
-            connect(addr, continuation, object : CompletionHandler<Void, Continuation<Unit>> {
-                override fun completed(result: Void, attachment: Continuation<Unit>) {
-                    attachment.resume(Unit)
-                }
+            connect(addr, continuation, CompletionToContinuation())
+        }
 
-                override fun failed(exc: Throwable, attachment: Continuation<Unit>) {
-                    attachment.resumeWithException(exc)
-                }
-            })
+        class CompletionToContinuation<R, C> : CompletionHandler<R, Continuation<C>> {
+            override fun completed(result: R, attachment: Continuation<C>) {
+                /*
+                if (result is Void)
+                    attachment.resume(Unit as C)
+                else
+
+                 */
+                attachment.resume(result as C)
+            }
+
+            override fun failed(exc: Throwable, attachment: Continuation<C>) {
+                attachment.resumeWithException(exc)
+            }
         }
     }
 
