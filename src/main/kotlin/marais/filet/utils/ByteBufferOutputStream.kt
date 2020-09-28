@@ -1,4 +1,4 @@
-package marais.filet
+package marais.filet.utils
 
 import java.io.OutputStream
 import java.nio.ByteBuffer

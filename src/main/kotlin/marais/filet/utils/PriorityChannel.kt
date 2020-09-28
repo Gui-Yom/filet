@@ -1,4 +1,4 @@
-package marais.filet
+package marais.filet.utils
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.*
@@ -83,10 +83,10 @@ internal class PriorityChannel<E>(comparator: Comparator<E>) : Channel<E> {
 
     override suspend fun receive(): E {
         var elem = poll()
-        if (elem == null && closed)
-            throw ClosedReceiveChannelException("No more elem while closed")
         if (elem != null)
             return elem
+        if (closed)
+            throw ClosedReceiveChannelException("No more elem while closed")
 
         elem = poll()
         while (elem == null) {

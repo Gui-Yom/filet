@@ -2,6 +2,9 @@ package marais.filet
 
 import java.nio.ByteBuffer
 
+/**
+ * Implement theses methods to
+ */
 interface PacketSerializer<T> {
 
     val packetId: Byte

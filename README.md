@@ -19,17 +19,39 @@ Fragmenting a transmission in packets allows for stream multiplexing
 #### Transport
 The underlying protocol powering the data transfers.
 
-### API
+### API (Kotlin)
 ```kotlin
-client = Client(TcpTransport.Client())
+val client = Client(CoroutineScope(), Pipeline(DummyModule))
+client.onReceive {
+    when (it) {
+        is DummyPacket -> {
+            it.a
+        }
+    }
+}
+client.registerType(DummyPacket)
+client.start(DummyTransport.Client)
 client.transmit {
-val packet = MessagePacket("")
-it.sendPacket(packet)
-
-val fileTransmission = FileTransmission(it)
-fileTransmission.begin()
+    sendPacket(DummyPacket())
 }
-client.handle {
 
+class DummyPacket(val a: Int = 0) {
+
+    companion object : AbstractPacketSerializer<DummyPacket>(0) {
+        override fun read(buffer: ByteBuffer): DummyPacket = DummyPacket(buffer.int)
+
+        override fun getPacketClass(): Class<DummyPacket> = DummyPacket::class.java
+
+        override fun writeData(obj: DummyPacket, buffer: ByteBuffer): Int {
+            buffer.putInt(obj.a)
+            return 4
+        }
+    }
 }
+```
+
+### Inner workings
+
+```
+Client -> Queue (Objects) -> [Module 0, Module 1, ...] -> Queue (Buffers) -> Transport
 ```

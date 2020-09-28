@@ -13,7 +13,7 @@ object TestClient {
     fun `test client dsl`() = runBlocking {
 
         val client = Client(this, Pipeline(DummyModule))
-        client.onReceive {
+        client.handler {
             when (it) {
                 is DummyPacket -> {
                     it.a

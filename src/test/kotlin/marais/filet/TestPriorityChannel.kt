@@ -1,6 +1,7 @@
 package marais.filet
 
 import kotlinx.coroutines.runBlocking
+import marais.filet.utils.PriorityChannel
 import java.util.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
