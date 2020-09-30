@@ -20,7 +20,7 @@ object TestClient {
             }
         }
         client.registerType(DummyPacket)
-        client.start(this, DummyTransport.Client)
+        client.start(DummyTransport.Client)
         client.transmit {
             sendPacket(DummyPacket())
         }

@@ -18,7 +18,7 @@ object KtorTransport {
         @KtorExperimentalAPI
         constructor(addr: NetworkAddress) : this(aSocket(ActorSelectorManager(Dispatchers.Default)).tcp(), addr)
 
-        constructor(socket: Socket) {
+        constructor(socket: Socket) : this(null, null) {
             this.socket = socket
         }
 

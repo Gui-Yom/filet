@@ -14,10 +14,6 @@ object DummyTransport {
             return 0
         }
 
-        override suspend fun readByte(): Byte {
-            return 0
-        }
-
         override fun close() {}
     }
 

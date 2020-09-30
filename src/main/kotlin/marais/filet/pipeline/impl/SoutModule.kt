@@ -6,7 +6,7 @@ import java.nio.ByteBuffer
 
 object SoutModule : Module {
     override fun processIn(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer> {
-        println("received : ${ctx.packetId}, ${ctx.priority}")
+        println("received : ${ctx.transmission}, ${ctx.priority}")
         return obj to buf
     }
 

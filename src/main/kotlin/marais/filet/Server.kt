@@ -21,7 +21,17 @@ class Server(vararg modules: Module) : BaseEndpoint(*modules) {
     private var transport: ServerTransport? = null
     private var handler: suspend Remote.(Any) -> Unit = { }
 
-    private val clients = Collections.synchronizedList(mutableListOf<Remote>())
+    val clients = Collections.synchronizedList(mutableListOf<Remote>())
+        get() = field
+
+    /**
+     * Set the receiver block, this block will be called each time a packet is received and can be called concurrently.
+     *
+     * @param handler the packet handler
+     */
+    fun handler(handler: suspend Remote.(Any) -> Unit) {
+        this.handler = handler
+    }
 
     suspend fun start(transport: ServerTransport) {
 
