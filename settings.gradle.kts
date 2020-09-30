@@ -6,3 +6,4 @@ pluginManagement {
 }
 
 rootProject.name = "filet"
+include("filet-ktor")
