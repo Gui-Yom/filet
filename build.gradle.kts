@@ -63,14 +63,62 @@ allprojects {
             dokkaSourceSets.configureEach {
                 skipEmptyPackages.set(true)
                 platform.set(org.jetbrains.dokka.Platform.jvm)
-                includes.from("src/main/doc/extras.md")
+                includes.from("$projectDir/src/main/doc/extras.md")
                 jdkVersion.set(11)
                 sourceLink {
+                    localDirectory.set(file("$projectDir/src/main/kotlin"))
                     remoteUrl.set(URL("https://github.com/Gui-Yom/filet/blob/master/src/main/kotlin"))
                     // For GitHub
                     remoteLineSuffix.set("#L")
                 }
             }
+        }
+
+        val dokkaJar by creating(Jar::class) {
+            group = JavaBasePlugin.DOCUMENTATION_GROUP
+            description = "Assembles Kotlin docs with Dokka"
+            classifier = "javadoc"
+            from(project.tasks.dokkaHtml)
+        }
+
+        publishing {
+            publications {
+                create<MavenPublication>("Filet") {
+                    from(project.components["java"])
+                    artifact(dokkaJar)
+                    pom {
+                        name.set("Filet")
+                        description.set("Networking made easy")
+                        url.set("https://github.com/Gui-Yom/filet")
+                        licenses {
+                            license {
+                                name.set("MIT License")
+                                url.set("https://github.com/Gui-Yom/filet/blob/master/LICENSE")
+                            }
+                        }
+                        developers {
+                            developer {
+                                id.set("Gui-Yom")
+                                name.set("Guillaume Anthouard")
+                            }
+                        }
+                        scm {
+                            connection.set("scm:git:git://github.com/Gui-Yom/filet.git")
+                            developerConnection.set("scm:git:ssh://github.com/Gui-Yom/filet.git")
+                            url.set("https://github.com/Gui-Yom/filet/")
+                        }
+                    }
+                }
+            }
+            /*
+            repositories {
+                mavenLocal()
+                maven {
+                    url = uri("${rootProject.buildDir}/repository")
+                }
+            }
+
+             */
         }
 
         dependencyUpdates {
