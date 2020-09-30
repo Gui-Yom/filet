@@ -1,8 +1,6 @@
 package marais.filet.transport.impl
 
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.future.await
-import kotlinx.coroutines.withContext
 import marais.filet.transport.ClientTransport
 import marais.filet.transport.ServerTransport
 import java.net.SocketAddress
@@ -89,9 +87,7 @@ object TcpTransport {
         val server = AsynchronousServerSocketChannel.open()
 
         override suspend fun init() {
-            withContext(Dispatchers.IO) {
-                server.bind(addr, 4)
-            }
+            server.bind(addr, 4)
         }
 
         override suspend fun accept(): ClientTransport {

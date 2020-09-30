@@ -1,6 +1,8 @@
 package marais.filet
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import marais.filet.pipeline.Context
 import marais.filet.pipeline.Module
 import marais.filet.transport.ClientTransport
@@ -11,13 +13,12 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * Manage a connection to a server.
  */
-class Client(private val module: Module) {
+class Client(vararg modules: Module) : BaseEndpoint(*modules) {
 
-    private val queue = PriorityChannel(Comparator.comparingInt { it: Pair<Int, ByteBuffer> -> it.first }.reversed())
+    private val queue = PriorityChannel(Comparator.comparingInt(Pair<Int, ByteBuffer>::first).reversed())
     private val nextTransmissionId = AtomicInteger(0)
     private var transport: ClientTransport? = null
     private var handler: suspend Client.(Any) -> Unit = { }
-    private val serializers = HashMap<Byte, PacketSerializer<Any>>()
 
     /**
      * Set the receiver block, this block will be called each time a packet is received and can be called concurrently.
@@ -29,26 +30,18 @@ class Client(private val module: Module) {
     }
 
     /**
-     * Registers a packet serializer.
-     */
-    @SuppressWarnings("unchecked")
-    fun registerType(serializer: PacketSerializer<*>) {
-        this.serializers[serializer.packetId] = serializer as PacketSerializer<Any>
-    }
-
-    /**
      * Start the connection
      */
-    fun start(scope: CoroutineScope, transport: ClientTransport) {
+    suspend fun start(transport: ClientTransport) {
         this.transport = transport
 
-        // Receiver loop
-        scope.launch {
-            // Init connection
-            transport.init()
+        // Init connection
+        transport.init()
 
-            // Infinite loop on an IO thread
-            withContext(Dispatchers.IO) {
+        // Receiver loop
+        coroutineScope {
+            launch(Dispatchers.IO) {
+                // Infinite loop on an IO thread
                 while (true) {
                     // TODO okio, fix terrible buffer allocation and copies
                     val header = ByteBuffer.allocate(4 + 1 + 4)
@@ -65,21 +58,20 @@ class Client(private val module: Module) {
 
                     // Launch into Default thread pool to process modules and execute user code
                     launch(context = Dispatchers.Default) {
-                        val (newPacket, buf) = module.processIn(ctx, ctx.serializer.read(data), total)
+                        val (newPacket, buf) = pipeline.processIn(ctx, ctx.serializer.read(data), total)
                         handler(this@Client, newPacket)
                     }
                 }
             }
-        }
-
-        // Infinite sender loop on an IO thread
-        scope.launch(context = Dispatchers.IO) {
-            while (true) {
-                val (packet, buf) = queue.receive()
-                val position = buf.position()
-                buf.reset()
-                buf.limit(position)
-                transport.writeBytes(buf)
+            // Infinite sender loop on an IO thread
+            launch(context = Dispatchers.IO) {
+                while (true) {
+                    val (packet, buf) = queue.receive()
+                    val position = buf.position()
+                    buf.reset()
+                    buf.limit(position)
+                    transport.writeBytes(buf)
+                }
             }
         }
     }
@@ -103,7 +95,7 @@ class Client(private val module: Module) {
                     serializer.write(transmission, obj, buffer)
                     val effectivePriority = if (priority == null || priority == -1) serializer.priority else priority
                     val ctx = Context(serializer, serializers, transmission, effectivePriority)
-                    queue.send(effectivePriority to module.processOut(ctx, obj, buffer).second)
+                    queue.send(effectivePriority to pipeline.processOut(ctx, obj, buffer).second)
                 }
             }
         }

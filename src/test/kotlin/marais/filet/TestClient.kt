@@ -2,7 +2,6 @@ package marais.filet
 
 import kotlinx.coroutines.runBlocking
 import marais.filet.pipeline.impl.DummyModule
-import marais.filet.pipeline.impl.Pipeline
 import marais.filet.transport.impl.DummyTransport
 import java.nio.ByteBuffer
 import kotlin.test.Test
@@ -12,7 +11,7 @@ object TestClient {
     @Test
     fun `test client dsl`() = runBlocking {
 
-        val client = Client(this, Pipeline(DummyModule))
+        val client = Client(DummyModule)
         client.handler {
             when (it) {
                 is DummyPacket -> {
@@ -21,7 +20,7 @@ object TestClient {
             }
         }
         client.registerType(DummyPacket)
-        client.start(DummyTransport.Client)
+        client.start(this, DummyTransport.Client)
         client.transmit {
             sendPacket(DummyPacket())
         }
