@@ -18,26 +18,42 @@ Fragmenting a transmission in packets allows for stream multiplexing
 
 #### Transport
 The underlying protocol powering the data transfers.
+Currently, two implementations of a TCP transport are available. `marais.filet.transport.impl.TcpTransport` directly
+uses `java.nio.AsynchronousSocketChannel`. The other implementation is based on [Ktor](https://ktor.io) raw sockets
+and is served through the `filet-ktor` artifact.
 
 ### API (Kotlin)
 ```kotlin
-val client = Client(CoroutineScope(), Pipeline(DummyModule))
-client.onReceive {
-    when (it) {
+val server = Server()
+server.registerSerializer(DummyPacket)
+server.connectionHandler {
+    println("New connection !")
+    true
+}
+server.handler { server, obj ->
+    when (obj) {
         is DummyPacket -> {
-            it.a
+            println("Received dummy packet : value=${obj.a}")
         }
     }
 }
-client.registerType(DummyPacket)
-client.start(DummyTransport.Client)
+server.start(TcpTransport.Server(InetSocketAddress(InetAddress.getLoopbackAddress(), 4785)))
+
+val client = Client()
+client.registerSerializer(DummyPacket)
+client.handler {
+    when (it) {
+
+    }
+}
+client.start(TcpTransport.Client(InetSocketAddress(InetAddress.getLoopbackAddress(), 4785)))
 client.transmit {
-    sendPacket(DummyPacket())
+    sendPacket(HandshakePacket())
 }
 
 class DummyPacket(val a: Int = 0) {
 
-    companion object : AbstractPacketSerializer<DummyPacket>(0) {
+    companion object : PacketSerializer<DummyPacket>(0, 0) {
         override fun read(buffer: ByteBuffer): DummyPacket = DummyPacket(buffer.int)
 
         override fun getPacketClass(): Class<DummyPacket> = DummyPacket::class.java

@@ -53,7 +53,7 @@ class Server(vararg modules: Module) : BaseEndpoint(*modules) {
 
         transport.init()
         coroutineScope {
-            launch {
+            launch(Dispatchers.IO) {
                 // Infinite accept loop
                 while (true) {
                     val client = transport.accept()

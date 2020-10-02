@@ -1,6 +1,6 @@
 package marais.filet.transport.impl
 
-import kotlinx.coroutines.future.await
+import kotlinx.coroutines.yield
 import marais.filet.transport.ClientTransport
 import marais.filet.transport.ServerTransport
 import java.net.SocketAddress
@@ -9,7 +9,6 @@ import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.nio.channels.AsynchronousSocketChannel
 import java.nio.channels.CompletionHandler
-import java.util.concurrent.CompletableFuture
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -19,7 +18,8 @@ import kotlin.coroutines.suspendCoroutine
  * Initializing the class will effectively init the connection
  */
 object TcpTransport {
-    class Client(private val channel: AsynchronousSocketChannel, private val addr: SocketAddress? = null) : ClientTransport {
+    class Client(private val channel: AsynchronousSocketChannel, private val addr: SocketAddress? = null) :
+        ClientTransport {
 
         constructor(addr: SocketAddress) : this(AsynchronousSocketChannel.open(), addr)
 
@@ -91,7 +91,11 @@ object TcpTransport {
         }
 
         override suspend fun accept(): ClientTransport {
-            return Client((server.accept() as CompletableFuture).minimalCompletionStage().await())
+            val future = server.accept()
+            while (!future.isDone)
+                yield()
+
+            return Client(future.get())
         }
 
         override fun close() {
