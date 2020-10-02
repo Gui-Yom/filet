@@ -8,10 +8,14 @@ import marais.filet.pipeline.Module
 import marais.filet.transport.ClientTransport
 import marais.filet.transport.ServerTransport
 import marais.filet.utils.PriorityChannel
+import java.io.Closeable
 import java.nio.ByteBuffer
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.Comparator
+
+typealias ServerPacketHandler = suspend Server.Remote.(Server, Any) -> Unit
+typealias ConnectionHandler = suspend Server.Remote.(Server) -> Boolean
 
 /**
  * The server listen for connections from clients.
@@ -19,7 +23,8 @@ import kotlin.Comparator
 class Server(vararg modules: Module) : BaseEndpoint(*modules) {
 
     private var transport: ServerTransport? = null
-    private var handler: suspend Remote.(Any) -> Unit = { }
+    private var packetHandler: ServerPacketHandler = { _, _ -> }
+    private var connectionHandler: ConnectionHandler = { true }
 
     val clients: MutableList<Remote> = Collections.synchronizedList(mutableListOf<Remote>())
 
@@ -28,8 +33,18 @@ class Server(vararg modules: Module) : BaseEndpoint(*modules) {
      *
      * @param handler the packet handler
      */
-    fun handler(handler: suspend Remote.(Any) -> Unit) {
-        this.handler = handler
+    fun handler(handler: ServerPacketHandler) {
+        this.packetHandler = handler
+    }
+
+    /**
+     * Block to be called on each new connection,
+     * plz don't suspend too long here as this is blocking the accept loop
+     *
+     * @param handler the connection handler, should return true to accept the new connection
+     */
+    fun connectionHandler(handler: ConnectionHandler) {
+        this.connectionHandler = handler
     }
 
     suspend fun start(transport: ServerTransport) {
@@ -43,8 +58,13 @@ class Server(vararg modules: Module) : BaseEndpoint(*modules) {
                 while (true) {
                     val client = transport.accept()
                     val remote = Remote(client)
-                    clients.add(remote)
-                    // TODO callback-based event on new connection ?
+                    // TODO do not block the accept loop
+                    if (connectionHandler(remote, this@Server))
+                        clients.add(remote)
+                    else {
+                        client.close()
+                        continue
+                    }
 
                     launch(Dispatchers.IO) {
                         val headerBuf = ByteBuffer.allocate(4 + 1 + 4)
@@ -68,7 +88,7 @@ class Server(vararg modules: Module) : BaseEndpoint(*modules) {
                                     ctx.serializer.read(dataBuf),
                                     total
                                 )
-                                handler(remote, newPacket)
+                                packetHandler(remote, this@Server, newPacket)
                             }
                         }
                     }
@@ -80,7 +100,7 @@ class Server(vararg modules: Module) : BaseEndpoint(*modules) {
     /**
      * A remote client connected to a local server
      */
-    inner class Remote(val transport: ClientTransport) {
+    inner class Remote(val transport: ClientTransport) : Closeable {
 
         private val nextTransmissionId = AtomicInteger(0)
         private val queue = PriorityChannel(Comparator.comparingInt(Pair<Int, ByteBuffer>::first).reversed())
@@ -110,5 +130,17 @@ class Server(vararg modules: Module) : BaseEndpoint(*modules) {
                 }
             }
         }
+
+        override fun close() {
+            queue.close()
+            transport.close()
+        }
+    }
+
+    override fun close() {
+        clients.forEach {
+            it.close()
+        }
+        transport?.close()
     }
 }

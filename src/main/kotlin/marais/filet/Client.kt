@@ -10,6 +10,8 @@ import marais.filet.utils.PriorityChannel
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicInteger
 
+typealias ClientPacketHandler = suspend Client.(Any) -> Unit
+
 /**
  * Manage a connection to a server.
  */
@@ -18,14 +20,14 @@ class Client(vararg modules: Module) : BaseEndpoint(*modules) {
     private val queue = PriorityChannel(Comparator.comparingInt(Pair<Int, ByteBuffer>::first).reversed())
     private val nextTransmissionId = AtomicInteger(0)
     private var transport: ClientTransport? = null
-    private var handler: suspend Client.(Any) -> Unit = { }
+    private var handler: ClientPacketHandler = { }
 
     /**
      * Set the receiver block, this block will be called each time a packet is received and can be called concurrently.
      *
      * @param handler the packet handler
      */
-    fun handler(handler: suspend Client.(Any) -> Unit) {
+    fun handler(handler: ClientPacketHandler) {
         this.handler = handler
     }
 
@@ -103,5 +105,10 @@ class Client(vararg modules: Module) : BaseEndpoint(*modules) {
 
     companion object {
         const val MAX_PACKET_SIZE = 8192
+    }
+
+    override fun close() {
+        queue.close()
+        transport?.close()
     }
 }
