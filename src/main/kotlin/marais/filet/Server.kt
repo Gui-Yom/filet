@@ -21,8 +21,7 @@ class Server(vararg modules: Module) : BaseEndpoint(*modules) {
     private var transport: ServerTransport? = null
     private var handler: suspend Remote.(Any) -> Unit = { }
 
-    val clients = Collections.synchronizedList(mutableListOf<Remote>())
-        get() = field
+    val clients: MutableList<Remote> = Collections.synchronizedList(mutableListOf<Remote>())
 
     /**
      * Set the receiver block, this block will be called each time a packet is received and can be called concurrently.
@@ -63,7 +62,12 @@ class Server(vararg modules: Module) : BaseEndpoint(*modules) {
 
                             // Launch into Default thread pool to process modules and execute user code
                             launch(context = Dispatchers.Default) {
-                                val (newPacket, buf) = pipeline.processIn(ctx, ctx.serializer.read(dataBuf), total)
+                                val (newPacket, buf) = pipeline.processIn(
+                                    ctx,
+                                    // The buffer we pass here should be of the size of the data
+                                    ctx.serializer.read(dataBuf),
+                                    total
+                                )
                                 handler(remote, newPacket)
                             }
                         }
@@ -98,7 +102,8 @@ class Server(vararg modules: Module) : BaseEndpoint(*modules) {
                         // TODO handle gracefully
                         require(serializer != null)
                         serializer.write(transmission, obj, buffer)
-                        val effectivePriority = if (priority == null || priority == -1) serializer.priority else priority
+                        val effectivePriority =
+                            if (priority == null || priority == -1) serializer.priority else priority
                         val ctx = Context(serializer, serializers, transmission, effectivePriority)
                         queue.send(effectivePriority to pipeline.processOut(ctx, obj, buffer).second)
                     }

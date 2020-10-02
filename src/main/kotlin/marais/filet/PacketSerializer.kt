@@ -2,28 +2,12 @@ package marais.filet
 
 import java.nio.ByteBuffer
 
-/**
- * Implement theses methods to
- */
-interface PacketSerializer<T> {
-
-    val packetId: Byte
-
-    val priority: Int
-
-    fun write(transmission: Int, obj: T, out: ByteBuffer): Int
-
-    fun read(buffer: ByteBuffer): T
-
-    fun getPacketClass(): Class<T>
-}
-
-abstract class AbstractPacketSerializer<T>(override val packetId: Byte, override val priority: Int = 0) : PacketSerializer<T> {
+abstract class PacketSerializer<T>(val packetId: Byte, val priority: Int = 0) {
 
     /**
      * @return the number of bytes written
      */
-    override fun write(transmission: Int, obj: T, out: ByteBuffer): Int {
+    fun write(transmission: Int, obj: T, out: ByteBuffer): Int {
         out.putInt(transmission)
         out.put(packetId)
         out.position(out.position() + 4)
@@ -41,4 +25,8 @@ abstract class AbstractPacketSerializer<T>(override val packetId: Byte, override
      * @return the number of bytes written
      */
     protected abstract fun writeData(obj: T, buffer: ByteBuffer): Int
+
+    abstract fun read(buffer: ByteBuffer): T
+
+    abstract fun getPacketClass(): Class<T>
 }
