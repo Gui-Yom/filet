@@ -1,6 +1,7 @@
 package marais.filet
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import marais.filet.pipeline.Context
@@ -52,44 +53,43 @@ class Server(vararg modules: Module) : BaseEndpoint(*modules) {
         this.transport = transport
 
         transport.init()
-        coroutineScope {
-            launch(Dispatchers.IO) {
-                // Infinite accept loop
-                while (true) {
-                    val client = transport.accept()
-                    val remote = Remote(client)
-                    // TODO do not block the accept loop
-                    if (connectionHandler(remote, this@Server))
-                        clients.add(remote)
-                    else {
-                        client.close()
-                        continue
-                    }
+        GlobalScope.launch(Dispatchers.IO) {
+            // Infinite accept loop
+            while (true) {
+                val client = transport.accept()
+                client.init()
+                val remote = Remote(client)
+                // TODO do not block the accept loop
+                if (connectionHandler(remote, this@Server))
+                    clients.add(remote)
+                else {
+                    client.close()
+                    continue
+                }
 
-                    launch(Dispatchers.IO) {
-                        val headerBuf = ByteBuffer.allocate(4 + 1 + 4)
-                        var dataBuf: ByteBuffer? = null
-                        while (true) {
-                            remote.transport.readBytes(headerBuf)
-                            val size = headerBuf.getInt(5)
-                            dataBuf = ByteBuffer.allocate(size)
-                            remote.transport.readBytes(dataBuf)
-                            val total = ByteBuffer.allocate(4 + 1 + 4 + size).put(headerBuf).put(dataBuf)
+                GlobalScope.launch(Dispatchers.IO) {
+                    val headerBuf = ByteBuffer.allocate(4 + 1 + 4)
+                    var dataBuf: ByteBuffer? = null
+                    while (true) {
+                        remote.transport.readBytes(headerBuf)
+                        val size = headerBuf.getInt(5)
+                        dataBuf = ByteBuffer.allocate(size)
+                        remote.transport.readBytes(dataBuf)
+                        val total = ByteBuffer.allocate(4 + 1 + 4 + size).put(headerBuf).put(dataBuf)
 
-                            val serializer = serializers[headerBuf[4]]
-                            require(serializer != null)
-                            val ctx = Context(serializer, serializers, headerBuf.getInt(0), null)
+                        val serializer = serializers[headerBuf[4]]
+                        require(serializer != null)
+                        val ctx = Context(serializer, serializers, headerBuf.getInt(0), null)
 
-                            // Launch into Default thread pool to process modules and execute user code
-                            launch(context = Dispatchers.Default) {
-                                val (newPacket, buf) = pipeline.processIn(
-                                    ctx,
-                                    // The buffer we pass here should be of the size of the data
-                                    ctx.serializer.read(dataBuf),
-                                    total
-                                )
-                                packetHandler(remote, this@Server, newPacket)
-                            }
+                        // Launch into Default thread pool to process modules and execute user code
+                        GlobalScope.launch(context = Dispatchers.Default) {
+                            val (newPacket, buf) = pipeline.processIn(
+                                ctx,
+                                // The buffer we pass here should be of the size of the data
+                                ctx.serializer.read(dataBuf.position(0)),
+                                total
+                            )
+                            packetHandler(remote, this@Server, newPacket)
                         }
                     }
                 }

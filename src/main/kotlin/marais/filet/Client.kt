@@ -1,6 +1,7 @@
 package marais.filet
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import marais.filet.pipeline.Context
@@ -41,39 +42,37 @@ class Client(vararg modules: Module) : BaseEndpoint(*modules) {
         transport.init()
 
         // Receiver loop
-        coroutineScope {
-            launch(Dispatchers.IO) {
-                // Infinite loop on an IO thread
-                while (true) {
-                    // TODO okio, fix terrible buffer allocation and copies
-                    val header = ByteBuffer.allocate(4 + 1 + 4)
-                    transport.readBytes(header)
-                    val size = header.getInt(5)
-                    header.reset()
-                    val data = ByteBuffer.allocate(size)
-                    transport.readBytes(data)
-                    val total = ByteBuffer.allocate(4 + 1 + 4 + size).put(header).put(data)
+        GlobalScope.launch(Dispatchers.IO) {
+            // Infinite loop on an IO thread
+            while (true) {
+                // TODO okio, fix terrible buffer allocation and copies
+                val header = ByteBuffer.allocate(4 + 1 + 4)
+                transport.readBytes(header)
+                val size = header.getInt(5)
+                header.reset()
+                val data = ByteBuffer.allocate(size)
+                transport.readBytes(data)
+                val total = ByteBuffer.allocate(4 + 1 + 4 + size).put(header).put(data)
 
-                    val serializer = serializers[header[4]]
-                    require(serializer != null)
-                    val ctx = Context(serializer, serializers, header.getInt(0), null)
+                val serializer = serializers[header[4]]
+                require(serializer != null)
+                val ctx = Context(serializer, serializers, header.getInt(0), null)
 
-                    // Launch into Default thread pool to process modules and execute user code
-                    launch(context = Dispatchers.Default) {
-                        val (newPacket, buf) = pipeline.processIn(ctx, ctx.serializer.read(data), total)
-                        handler(this@Client, newPacket)
-                    }
+                // Launch into Default thread pool to process modules and execute user code
+                GlobalScope.launch(context = Dispatchers.Default) {
+                    val (newPacket, buf) = pipeline.processIn(ctx, ctx.serializer.read(data), total)
+                    handler(this@Client, newPacket)
                 }
             }
-            // Infinite sender loop on an IO thread
-            launch(context = Dispatchers.IO) {
-                while (true) {
-                    val (packet, buf) = queue.receive()
-                    val position = buf.position()
-                    buf.reset()
-                    buf.limit(position)
-                    transport.writeBytes(buf)
-                }
+        }
+        // Infinite sender loop on an IO thread
+        GlobalScope.launch(context = Dispatchers.IO) {
+            while (true) {
+                val (_, buf) = queue.receive()
+                val position = buf.position()
+                buf.reset()
+                buf.limit(position)
+                transport.writeBytes(buf)
             }
         }
     }
@@ -91,6 +90,7 @@ class Client(vararg modules: Module) : BaseEndpoint(*modules) {
             coroutineScope {
                 launch {
                     val buffer = ByteBuffer.allocate(Companion.MAX_PACKET_SIZE * 2)
+                    buffer.mark()
                     val serializer = serializers.values.find { it.getPacketClass() == obj::class.java }
                     // TODO handle gracefully
                     require(serializer != null)

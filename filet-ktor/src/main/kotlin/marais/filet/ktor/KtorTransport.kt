@@ -13,7 +13,8 @@ import marais.filet.transport.ServerTransport
 import java.nio.ByteBuffer
 
 object KtorTransport {
-    class Client(private val socketBuilder: TcpSocketBuilder?, private val addr: NetworkAddress? = null) : ClientTransport {
+    class Client(private val socketBuilder: TcpSocketBuilder?, private val addr: NetworkAddress? = null) :
+        ClientTransport {
 
         @KtorExperimentalAPI
         constructor(addr: NetworkAddress) : this(aSocket(ActorSelectorManager(Dispatchers.Default)).tcp(), addr)
@@ -34,7 +35,7 @@ object KtorTransport {
                     // TODO socket options
                 }
                 socket = socketBuilder?.connect(addr, configure)
-                        ?: aSocket(ActorSelectorManager(Dispatchers.Default)).tcp().connect(addr, configure)
+                    ?: aSocket(ActorSelectorManager(Dispatchers.Default)).tcp().connect(addr, configure)
             }
             writeChannel = socket!!.openWriteChannel(true)
             readChannel = socket!!.openReadChannel()
@@ -46,13 +47,13 @@ object KtorTransport {
 
         @ExperimentalIoApi
         override suspend fun readBytes(buffer: ByteBuffer): Int {
-            val remaining = buffer.remaining()
-            readChannel!!.read(remaining) { mem, start, end ->
-                require(end - start > 0)
+            val size = buffer.remaining()
+            readChannel!!.read(size) { mem, start, end ->
+                require(end - start >= size)
                 mem.copyTo(buffer, start)
-                remaining
+                size
             }
-            return remaining
+            return size
         }
 
         override fun close() {
