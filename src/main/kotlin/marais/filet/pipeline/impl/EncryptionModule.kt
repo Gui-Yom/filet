@@ -1,6 +1,6 @@
 package marais.filet.pipeline.impl
 
-import marais.filet.AbstractPacketSerializer
+import marais.filet.PacketSerializer
 import marais.filet.pipeline.Context
 import marais.filet.pipeline.Module
 import java.nio.ByteBuffer
@@ -15,7 +15,7 @@ class EncryptionModule : Module {
         return EncryptedPacket(obj) to buf
     }
 
-    class EncryptedPacket(obj: Any) : AbstractPacketSerializer<EncryptedPacket>(-1) {
+    class EncryptedPacket(obj: Any) : PacketSerializer<EncryptedPacket>(-1) {
 
         override fun read(buffer: ByteBuffer): EncryptedPacket {
             val size = buffer.int
