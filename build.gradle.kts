@@ -1,11 +1,11 @@
 import java.net.URL
 
 plugins {
-    kotlin("jvm") version "1.4.10"
+    kotlin("jvm")
     `java-library`
     `maven-publish`
-    id("org.jetbrains.dokka") version "1.4.10"
-    id("com.github.ben-manes.versions") version "0.33.0"
+    id("org.jetbrains.dokka")
+    id("com.github.ben-manes.versions")
 }
 
 subprojects {
@@ -20,8 +20,10 @@ subprojects {
 
 allprojects {
 
+    val filetVersion: String by project
+
     group = "marais"
-    version = "0.1.0"
+    version = filetVersion
 
     repositories {
         mavenLocal()
@@ -54,7 +56,7 @@ allprojects {
         jar {
             manifest {
                 attributes(
-                        "Automatic-Module-Name" to "marais.filet"
+                    "Automatic-Module-Name" to "marais.filet"
                 )
             }
         }
@@ -138,12 +140,15 @@ allprojects {
 }
 
 dependencies {
+    val okioVersion: String by project
+    val coroutinesVersion: String by project
+
     implementation(platform(kotlin("bom")))
     implementation(kotlin("stdlib-jdk8"))
 
-    implementation("com.squareup.okio:okio:2.8.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.3.9")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.3.9")
+    implementation("com.squareup.okio:okio:$okioVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:$coroutinesVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:$coroutinesVersion")
 
     // Use the Kotlin test library.
     testImplementation("org.jetbrains.kotlin:kotlin-test")
