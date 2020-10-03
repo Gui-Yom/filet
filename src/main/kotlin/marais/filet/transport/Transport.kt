@@ -20,6 +20,11 @@ interface ClientTransport : Closeable {
      * Reads up to buffer.limit() bytes
      */
     suspend fun readBytes(buffer: ByteBuffer): Int
+
+    /**
+     * Shutdown the transport and release any associated resource.
+     */
+    override fun close()
 }
 
 /**
@@ -36,4 +41,9 @@ interface ServerTransport : Closeable {
      * @return a reference to a [ClientTransport] of the same protocol representing a remote client.
      */
     suspend fun accept(): ClientTransport
+
+    /**
+     * Shutdown the transport and release any associated resource.
+     */
+    override fun close()
 }

@@ -16,7 +16,7 @@ typealias ClientPacketHandler = suspend Client.(obj: Any) -> Unit
 /**
  * Manage a connection to a server.
  */
-class Client(private val scope: CoroutineScope, vararg modules: Module) : BaseEndpoint(*modules) {
+class Client(private val scope: CoroutineScope, vararg modules: Module) : BaseEndpoint(*modules), Transmitter {
 
     private val queue = PriorityChannel(Comparator.comparingInt(Pair<Int, ByteBuffer>::first).reversed())
     private val nextTransmissionId = AtomicInteger(0)
@@ -92,26 +92,9 @@ class Client(private val scope: CoroutineScope, vararg modules: Module) : BaseEn
     /**
      * Opens up a new transmission to send packets to the underlying transport.
      */
-    fun transmit(block: Transmission.() -> Unit) {
-        block(Transmission(nextTransmissionId.getAndIncrement()))
-    }
-
-    inner class Transmission(val transmission: Int) {
-        fun sendPacket(obj: Any, priority: Int? = -1) {
-            // TODO use a backbuffer
-            // TODO use OKIO
-            // TODO use a buffer pool
-            scope.launch {
-                val buffer = ByteBuffer.allocate(PacketSerializer.MAX_PACKET_SIZE * 2)
-                buffer.mark()
-                val serializer = serializers.values.find { it.getPacketKClass() == obj::class }
-                    ?: throw SerializerUnavailable(obj::class)
-                serializer.write(transmission, obj, buffer)
-                val effectivePriority = if (priority == null || priority == -1) serializer.priority else priority
-                val ctx = Context(serializer, serializers, transmission, effectivePriority)
-                queue.send(effectivePriority to pipeline.processOut(ctx, obj, buffer).second)
-            }
-        }
+    override fun transmit(block: Transmission.() -> Unit) {
+        // TODO Maybe we could reuse the object, since only the transmission id is changed
+        block(DefaultTransmission(scope, nextTransmissionId.getAndIncrement(), serializers, pipeline, queue))
     }
 
     override fun close() {
