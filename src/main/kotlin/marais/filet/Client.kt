@@ -6,6 +6,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import marais.filet.pipeline.Context
 import marais.filet.pipeline.Module
+import marais.filet.pipeline.Pipeline
 import marais.filet.transport.ClientTransport
 import marais.filet.utils.PriorityChannel
 import java.nio.ByteBuffer
@@ -16,12 +17,36 @@ typealias ClientPacketHandler = suspend Client.(obj: Any) -> Unit
 /**
  * Manage a connection to a server.
  */
-class Client(private val scope: CoroutineScope, vararg modules: Module) : BaseEndpoint(*modules), Transmitter {
+class Client(private val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpoint(pipeline) {
+
+    constructor(scope: CoroutineScope, vararg modules: Module) : this(scope, Pipeline(*modules))
+
+    /**
+     * Used when creating the client from a remote connection in Server.
+     */
+    internal constructor(scope: CoroutineScope, pipeline: Pipeline, transport: ClientTransport)
+            : this(scope, pipeline) {
+        this.transport = transport
+    }
 
     private val queue = PriorityChannel(Comparator.comparingInt(Pair<Int, ByteBuffer>::first).reversed())
+
+    /**
+     * Used to generate the transmission id
+     */
     private val nextTransmissionId = AtomicInteger(0)
+
+    /**
+     * The underlying transport
+     */
     private var transport: ClientTransport? = null
-    private var packetHandler: ClientPacketHandler = { }
+
+    /**
+     * Block called each time a packet is received
+     */
+    private var packetHandler: ClientPacketHandler = {}
+
+    internal var server: Server? = null
 
     /**
      * Infinite send loop, takes buffer from the queue and write them to the transport
@@ -48,9 +73,12 @@ class Client(private val scope: CoroutineScope, vararg modules: Module) : BaseEn
      */
     suspend fun start(transport: ClientTransport) {
         this.transport = transport
+        start()
+    }
 
+    internal suspend fun start() {
         // Init connection
-        transport.init()
+        transport!!.init()
 
         // Receiver loop
         // We take a reference to the job in order to stop it when closing the Client
@@ -59,11 +87,11 @@ class Client(private val scope: CoroutineScope, vararg modules: Module) : BaseEn
             while (true) {
                 // TODO okio, fix terrible buffer allocation and copies
                 val header = ByteBuffer.allocate(4 + 1 + 4)
-                transport.readBytes(header)
+                transport!!.readBytes(header)
                 val size = header.getInt(5)
                 header.reset()
                 val data = ByteBuffer.allocate(size)
-                transport.readBytes(data)
+                transport!!.readBytes(data)
                 val total = ByteBuffer.allocate(4 + 1 + 4 + size).put(header).put(data)
 
                 val serializer = serializers[header[4]]
@@ -72,8 +100,11 @@ class Client(private val scope: CoroutineScope, vararg modules: Module) : BaseEn
 
                 // Launch into Default thread pool to process modules and execute user code
                 scope.launch(context = Dispatchers.Default) {
-                    val (newPacket, buf) = pipeline.processIn(ctx, ctx.serializer.read(data), total)
-                    packetHandler(this@Client, newPacket)
+                    val (obj, buf) = pipeline.processIn(ctx, ctx.serializer.read(data), total)
+                    if (server == null)
+                        packetHandler(this@Client, obj)
+                    else
+                        server!!.packetHandler(this@Client, server!!, obj)
                 }
             }
         }
@@ -84,19 +115,33 @@ class Client(private val scope: CoroutineScope, vararg modules: Module) : BaseEn
                 val position = buf.position()
                 buf.reset()
                 buf.limit(position)
-                transport.writeBytes(buf)
+                transport!!.writeBytes(buf)
             }
         }
     }
 
     /**
      * Opens up a new transmission to send packets to the underlying transport.
+     * The transmission id is automatically generated.
      */
-    override fun transmit(block: Transmission.() -> Unit) {
+    fun transmit(block: Transmission.() -> Unit) {
         // TODO Maybe we could reuse the object, since only the transmission id is changed
         block(DefaultTransmission(scope, nextTransmissionId.getAndIncrement(), serializers, pipeline, queue))
     }
 
+    /**
+     * Opens up a new transmission to send packets to the underlying transport.
+     *
+     * @param transmitId the transmission id to use
+     */
+    fun transmit(transmitId: Int, block: Transmission.() -> Unit) {
+        // TODO Maybe we could reuse the object, since only the transmission id is changed
+        block(DefaultTransmission(scope, transmitId, serializers, pipeline, queue))
+    }
+
+    /**
+     * Shutdown the underlying transport and cancel any jobs or resources associated with this Client.
+     */
     override fun close() {
         queue.close()
         sendJob?.cancel()

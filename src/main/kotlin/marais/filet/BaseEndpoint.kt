@@ -4,9 +4,10 @@ import marais.filet.pipeline.Module
 import marais.filet.pipeline.Pipeline
 import java.io.Closeable
 
-abstract class BaseEndpoint(vararg modules: Module) : Closeable {
+abstract class BaseEndpoint internal constructor(protected val pipeline: Pipeline) : Closeable {
 
-    protected val pipeline = Pipeline(*modules)
+    internal constructor(vararg modules: Module) : this(Pipeline(*modules))
+
     protected val serializers = HashMap<Byte, PacketSerializer<Any>>()
 
     /**

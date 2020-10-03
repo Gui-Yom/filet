@@ -8,18 +8,14 @@ import marais.filet.utils.PriorityChannel
 import java.nio.ByteBuffer
 
 /**
- * Defines the method [transmit] to create a new transmission.
+ * An ephemeral stream bonding related packets together.
  */
-interface Transmitter {
-    /**
-     * Opens up a new transmission to send packets to the underlying transport.
-     */
-    fun transmit(block: Transmission.() -> Unit)
-}
-
 interface Transmission {
     val transmitId: Int
 
+    /**
+     * Send packets through this transmission.
+     */
     fun sendPacket(obj: Any, priority: Int = -1)
 }
 
@@ -29,8 +25,7 @@ internal class DefaultTransmission internal constructor(
     val serializers: HashMap<Byte, PacketSerializer<Any>>,
     val pipeline: Pipeline,
     val queue: PriorityChannel<Pair<Int, ByteBuffer>>
-) :
-    Transmission {
+) : Transmission {
     override fun sendPacket(obj: Any, priority: Int) {
         // TODO use a backbuffer
         // TODO use OKIO

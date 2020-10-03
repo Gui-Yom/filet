@@ -1,33 +1,29 @@
 package marais.filet
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import marais.filet.pipeline.Context
 import marais.filet.pipeline.Module
-import marais.filet.transport.ClientTransport
 import marais.filet.transport.ServerTransport
-import marais.filet.utils.PriorityChannel
-import java.io.Closeable
-import java.nio.ByteBuffer
 import java.util.*
-import java.util.concurrent.atomic.AtomicInteger
-import kotlin.Comparator
 
-typealias ServerPacketHandler = suspend Server.Remote.(Server, Any) -> Unit
-typealias ConnectionHandler = suspend Server.Remote.(Server) -> Boolean
+typealias ServerPacketHandler = suspend Client.(Server, obj: Any) -> Unit
+typealias ConnectionHandler = suspend Client.(Server) -> Boolean
 
 /**
  * The server listen for connections from clients.
  */
-class Server(vararg modules: Module) : BaseEndpoint(*modules) {
+class Server(private val scope: CoroutineScope, vararg modules: Module) : BaseEndpoint(*modules) {
 
     private var transport: ServerTransport? = null
-    private var packetHandler: ServerPacketHandler = { _, _ -> }
+
+    internal var packetHandler: ServerPacketHandler = { _, _ -> }
     private var connectionHandler: ConnectionHandler = { true }
 
-    val clients: MutableList<Remote> = Collections.synchronizedList(mutableListOf<Remote>())
+    private var acceptJob: Job? = null
+
+    val clients: MutableList<Client> = Collections.synchronizedList(mutableListOf<Client>())
 
     /**
      * Set the receiver block, this block will be called each time a packet is received and can be called concurrently.
@@ -53,91 +49,26 @@ class Server(vararg modules: Module) : BaseEndpoint(*modules) {
         this.transport = transport
 
         transport.init()
-        GlobalScope.launch(Dispatchers.IO) {
+        acceptJob = scope.launch(Dispatchers.IO) {
             // Infinite accept loop
             while (true) {
-                val client = transport.accept()
-                client.init()
-                val remote = Remote(client)
+                val remote = Client(scope, pipeline, transport.accept())
                 // TODO do not block the accept loop
-                if (connectionHandler(remote, this@Server))
+                if (connectionHandler(remote, this@Server)) {
+                    remote.start()
                     clients.add(remote)
-                else {
-                    client.close()
-                    continue
-                }
-
-                GlobalScope.launch(Dispatchers.IO) {
-                    val headerBuf = ByteBuffer.allocate(4 + 1 + 4)
-                    var dataBuf: ByteBuffer? = null
-                    while (true) {
-                        remote.transport.readBytes(headerBuf)
-                        val size = headerBuf.getInt(5)
-                        dataBuf = ByteBuffer.allocate(size)
-                        remote.transport.readBytes(dataBuf)
-                        val total = ByteBuffer.allocate(4 + 1 + 4 + size).put(headerBuf).put(dataBuf)
-
-                        val serializer = serializers[headerBuf[4]]
-                        require(serializer != null)
-                        val ctx = Context(serializer, serializers, headerBuf.getInt(0), null)
-
-                        // Launch into Default thread pool to process modules and execute user code
-                        GlobalScope.launch(context = Dispatchers.Default) {
-                            val (newPacket, buf) = pipeline.processIn(
-                                ctx,
-                                // The buffer we pass here should be of the size of the data
-                                ctx.serializer.read(dataBuf.position(0)),
-                                total
-                            )
-                            packetHandler(remote, this@Server, newPacket)
-                        }
-                    }
+                } else {
+                    remote.close()
                 }
             }
         }
     }
 
     /**
-     * A remote client connected to a local server
+     * Shutdown the underlying transport and cancel any jobs or resources associated with this Server.
      */
-    inner class Remote(val transport: ClientTransport) : Closeable {
-
-        private val nextTransmissionId = AtomicInteger(0)
-        private val queue = PriorityChannel(Comparator.comparingInt(Pair<Int, ByteBuffer>::first).reversed())
-
-        suspend fun transmit(block: suspend Transmission.() -> Unit) {
-            block(Transmission(nextTransmissionId.getAndIncrement()))
-        }
-
-        inner class Transmission(val transmission: Int) {
-            suspend fun sendPacket(obj: Any, priority: Int? = -1) {
-                // TODO use a backbuffer
-                // TODO use OKIO
-                // TODO use a buffer pool
-
-                coroutineScope {
-                    launch {
-                        val buffer = ByteBuffer.allocate(Client.MAX_PACKET_SIZE * 2)
-                        val serializer = serializers.values.find { it.getPacketClass() == obj::class.java }
-                        // TODO handle gracefully
-                        require(serializer != null)
-                        serializer.write(transmission, obj, buffer)
-                        val effectivePriority =
-                            if (priority == null || priority == -1) serializer.priority else priority
-                        val ctx = Context(serializer, serializers, transmission, effectivePriority)
-                        queue.send(effectivePriority to pipeline.processOut(ctx, obj, buffer).second)
-                    }
-                }
-            }
-        }
-
-        override fun close() {
-            queue.close()
-            transport.close()
-        }
-    }
-
     override fun close() {
+        acceptJob?.cancel()
         clients.forEach {
             it.close()
         }
