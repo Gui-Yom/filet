@@ -1,8 +1,9 @@
 package marais.filet
 
 import java.nio.ByteBuffer
+import kotlin.reflect.KClass
 
-abstract class PacketSerializer<T>(val packetId: Byte, val priority: Int = 0) {
+abstract class PacketSerializer<T : Any>(val packetId: Byte, val priority: Int = 0) {
 
     /**
      * @return the number of bytes written
@@ -28,5 +29,13 @@ abstract class PacketSerializer<T>(val packetId: Byte, val priority: Int = 0) {
 
     abstract fun read(buffer: ByteBuffer): T
 
-    abstract fun getPacketClass(): Class<T>
+    abstract fun getPacketKClass(): KClass<T>
+
+    fun getPacketClass(): Class<T> {
+        return getPacketKClass().java
+    }
+
+    companion object {
+        const val MAX_PACKET_SIZE = 8192
+    }
 }

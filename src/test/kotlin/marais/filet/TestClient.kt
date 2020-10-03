@@ -11,7 +11,7 @@ object TestClient {
     @Test
     fun `test client dsl`() = runBlocking {
 
-        val client = Client(DummyModule)
+        val client = Client(this, DummyModule)
         client.handler {
             when (it) {
                 is DummyPacket -> {
@@ -19,7 +19,7 @@ object TestClient {
                 }
             }
         }
-        client.registerType(DummyPacket)
+        client.registerSerializer(DummyPacket)
         client.start(DummyTransport.Client)
         client.transmit {
             sendPacket(DummyPacket())
@@ -28,10 +28,10 @@ object TestClient {
 
     class DummyPacket(val a: Int = 0) {
 
-        companion object : AbstractPacketSerializer<DummyPacket>(0) {
+        companion object : PacketSerializer<DummyPacket>(0) {
             override fun read(buffer: ByteBuffer): DummyPacket = DummyPacket(buffer.int)
 
-            override fun getPacketClass(): Class<DummyPacket> = DummyPacket::class.java
+            override fun getPacketKClass() = DummyPacket::class
 
             override fun writeData(obj: DummyPacket, buffer: ByteBuffer): Int {
                 buffer.putInt(obj.a)

@@ -9,14 +9,14 @@ class TestServer {
     fun `test server`() = runBlocking {
 
         val server = Server()
-        server.handler { obj ->
+        server.handler { server, obj ->
             server.clients.forEach {
                 it.transmit {
                     sendPacket(obj)
                 }
             }
         }
-        server.registerType(TestClient.DummyPacket)
+        server.registerSerializer(TestClient.DummyPacket)
         server.start(DummyTransport.Server)
     }
 }

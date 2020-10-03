@@ -30,6 +30,6 @@ class EncryptionModule : Module {
             return 4
         }
 
-        override fun getPacketClass(): Class<EncryptedPacket> = EncryptedPacket::class.java
+        override fun getPacketKClass() = EncryptedPacket::class
     }
 }
