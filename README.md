@@ -9,6 +9,9 @@ Kotlin library for efficient networking based on NIO Channels and coroutines.
 Unit of transmission with size <= MAX_PACKET_SIZE <= Integer.MAX_SIZE.
 Use a packet id representing the type of the packet (byte).
 
+##### Serialization
+There is no packet class, you can bring your own POJO and a serializer/deserializer to/from bytes for it.
+
 #### Transmission
 A relatively coherent piece of data (text message, file).
 Made up of one or more packets.
@@ -20,7 +23,7 @@ Fragmenting a transmission in packets allows for stream multiplexing
 The underlying protocol powering the data transfers.
 Currently, two implementations of a TCP transport are available. `marais.filet.transport.impl.TcpTransport` directly
 uses `java.nio.AsynchronousSocketChannel`. The other implementation is based on [Ktor](https://ktor.io) raw sockets
-and is served through the `filet-ktor` artifact.
+and is provided through the `filet-ktor` artifact.
 
 ### API (Kotlin)
 ```kotlin
@@ -56,7 +59,7 @@ class DummyPacket(val a: Int = 0) {
     companion object : PacketSerializer<DummyPacket>(0, 0) {
         override fun read(buffer: ByteBuffer): DummyPacket = DummyPacket(buffer.int)
 
-        override fun getPacketClass(): Class<DummyPacket> = DummyPacket::class.java
+        override fun getPacketKClass() = DummyPacket::class
 
         override fun writeData(obj: DummyPacket, buffer: ByteBuffer): Int {
             buffer.putInt(obj.a)
@@ -67,7 +70,10 @@ class DummyPacket(val a: Int = 0) {
 ```
 
 ### Inner workings
-
 ```
 Client -> Queue (Objects) -> [Module 0, Module 1, ...] -> Queue (Buffers) -> Transport
 ```
+
+### TODO
+ - Okio integration (no more fiddling with raw ByteBuffer).
+ - Integration with kotlinx.serialization

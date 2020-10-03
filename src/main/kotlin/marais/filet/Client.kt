@@ -19,6 +19,9 @@ typealias ClientPacketHandler = suspend Client.(obj: Any) -> Unit
  */
 class Client(private val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpoint(pipeline) {
 
+    /**
+     * @param scope the scope used to launch new coroutines
+     */
     constructor(scope: CoroutineScope, vararg modules: Module) : this(scope, Pipeline(*modules))
 
     /**
@@ -101,6 +104,7 @@ class Client(private val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpoi
                 // Launch into Default thread pool to process modules and execute user code
                 scope.launch(context = Dispatchers.Default) {
                     val (obj, buf) = pipeline.processIn(ctx, ctx.serializer.read(data), total)
+                    // Use the server packet handler when this client is a remote
                     if (server == null)
                         packetHandler(this@Client, obj)
                     else
@@ -125,8 +129,7 @@ class Client(private val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpoi
      * The transmission id is automatically generated.
      */
     fun transmit(block: Transmission.() -> Unit) {
-        // TODO Maybe we could reuse the object, since only the transmission id is changed
-        block(DefaultTransmission(scope, nextTransmissionId.getAndIncrement(), serializers, pipeline, queue))
+        transmit(nextTransmissionId.getAndIncrement(), block)
     }
 
     /**
@@ -135,17 +138,53 @@ class Client(private val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpoi
      * @param transmitId the transmission id to use
      */
     fun transmit(transmitId: Int, block: Transmission.() -> Unit) {
+
+        // TODO handle gracefully
+        require(!isClosed)
         // TODO Maybe we could reuse the object, since only the transmission id is changed
-        block(DefaultTransmission(scope, transmitId, serializers, pipeline, queue))
+        block(DefaultTransmission(transmitId))
     }
 
     /**
      * Shutdown the underlying transport and cancel any jobs or resources associated with this Client.
      */
     override fun close() {
+        super.close()
+        // Shutdown input
+        receiveJob?.cancel()
+        // Shutdown output
         queue.close()
         sendJob?.cancel()
-        receiveJob?.cancel()
         transport?.close()
+    }
+
+    internal inner class DefaultTransmission(override val transmitId: Int) : Transmission {
+        override fun sendPacket(obj: Any, priority: Int) {
+            // TODO use a backbuffer
+            // TODO use OKIO
+            // TODO use a buffer pool
+            // Return immediately after scheduling this coroutine.
+            scope.launch {
+                // Try to find an appropriate serializer for the object
+                val serializer = serializers.values.find { it.getPacketKClass() == obj::class }
+                    ?: throw SerializerUnavailable(obj::class)
+                // Allocate space for the serialization
+                // Here we should have a read buffer and a write buffer to send down the pipeline
+                val buffer = ByteBuffer.allocate(PacketSerializer.MAX_PACKET_SIZE * 2)
+                buffer.mark()
+                // Serialization happens here
+                serializer.write(transmitId, obj, buffer)
+
+                val effectivePriority = if (priority < 0) serializer.priority else priority
+                // The pipeline context
+                val ctx = Context(serializer, serializers, transmitId, effectivePriority)
+
+                // The final buffer we'll send to the transport
+                val finalBuffer = pipeline.processOut(ctx, obj, buffer).second
+
+                // Sends the buffer to the sender loop, the queue will automatically sort buffers based on the priority
+                queue.send(effectivePriority to finalBuffer)
+            }
+        }
     }
 }

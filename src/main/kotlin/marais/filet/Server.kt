@@ -53,6 +53,7 @@ class Server(private val scope: CoroutineScope, vararg modules: Module) : BaseEn
             // Infinite accept loop
             while (true) {
                 val remote = Client(scope, pipeline, transport.accept())
+                remote.server = this@Server
                 // TODO do not block the accept loop
                 if (connectionHandler(remote, this@Server)) {
                     remote.start()
@@ -68,6 +69,7 @@ class Server(private val scope: CoroutineScope, vararg modules: Module) : BaseEn
      * Shutdown the underlying transport and cancel any jobs or resources associated with this Server.
      */
     override fun close() {
+        super.close()
         acceptJob?.cancel()
         clients.forEach {
             it.close()

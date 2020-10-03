@@ -8,7 +8,7 @@ class TestServer {
     @Test
     fun `test server`() = runBlocking {
 
-        val server = Server()
+        val server = Server(this)
         server.handler { server, obj ->
             server.clients.forEach {
                 it.transmit {
