@@ -14,7 +14,7 @@ typealias ConnectionHandler = suspend Client.(Server) -> Boolean
 /**
  * The server listen for connections from clients.
  */
-class Server(private val scope: CoroutineScope, vararg modules: Module) : BaseEndpoint(*modules) {
+class Server(internal val scope: CoroutineScope, vararg modules: Module) : BaseEndpoint(*modules) {
 
     private var transport: ServerTransport? = null
 
@@ -52,8 +52,8 @@ class Server(private val scope: CoroutineScope, vararg modules: Module) : BaseEn
         acceptJob = scope.launch(Dispatchers.IO) {
             // Infinite accept loop
             while (true) {
-                val remote = Client(scope, pipeline, transport.accept())
-                remote.server = this@Server
+                val remote = Client(transport.accept(), this@Server)
+
                 // TODO do not block the accept loop
                 if (connectionHandler(remote, this@Server)) {
                     remote.start()

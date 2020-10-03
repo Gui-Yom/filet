@@ -17,7 +17,11 @@ typealias ClientPacketHandler = suspend Client.(obj: Any) -> Unit
 /**
  * Manage a connection to a server.
  */
-class Client(private val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpoint(pipeline) {
+class Client(
+    private val scope: CoroutineScope,
+    pipeline: Pipeline,
+    serializers: MutableMap<Byte, PacketSerializer<Any>> = mutableMapOf()
+) : BaseEndpoint(pipeline, serializers) {
 
     /**
      * @param scope the scope used to launch new coroutines
@@ -27,9 +31,13 @@ class Client(private val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpoi
     /**
      * Used when creating the client from a remote connection in Server.
      */
-    internal constructor(scope: CoroutineScope, pipeline: Pipeline, transport: ClientTransport)
-            : this(scope, pipeline) {
+    internal constructor(
+        transport: ClientTransport,
+        server: Server
+    )
+            : this(server.scope, server.pipeline, server.serializers) {
         this.transport = transport
+        this.server = server
     }
 
     private val queue = PriorityChannel(Comparator.comparingInt(Pair<Int, ByteBuffer>::first).reversed())
@@ -87,15 +95,18 @@ class Client(private val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpoi
         // We take a reference to the job in order to stop it when closing the Client
         receiveJob = scope.launch(context = Dispatchers.IO) {
             // Infinite loop on an IO thread
+            val header = ByteBuffer.allocate(4 + 1 + 4).mark()
             while (true) {
-                // TODO okio, fix terrible buffer allocation and copies
-                val header = ByteBuffer.allocate(4 + 1 + 4)
-                transport!!.readBytes(header)
-                val size = header.getInt(5)
                 header.reset()
-                val data = ByteBuffer.allocate(size)
+                // TODO okio, fix terrible buffer allocation and copies
+                transport!!.readBytes(header)
+                header.reset()
+                val size = header.getInt(5)
+                val data = ByteBuffer.allocate(size).mark()
                 transport!!.readBytes(data)
-                val total = ByteBuffer.allocate(4 + 1 + 4 + size).put(header).put(data)
+                data.reset()
+                val total = ByteBuffer.allocate(4 + 1 + 4 + size).put(header).put(data).mark()
+                data.reset()
 
                 val serializer = serializers[header[4]]
                 require(serializer != null)
@@ -158,7 +169,7 @@ class Client(private val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpoi
         transport?.close()
     }
 
-    internal inner class DefaultTransmission(override val transmitId: Int) : Transmission {
+    inner class DefaultTransmission internal constructor(override val transmitId: Int) : Transmission {
         override fun sendPacket(obj: Any, priority: Int) {
             // TODO use a backbuffer
             // TODO use OKIO
