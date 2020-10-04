@@ -17,7 +17,7 @@ A relatively coherent piece of data (text message, file).
 Made up of one or more packets.
 Use a transmission id (byte).
 Fragmenting a transmission in packets allows for stream multiplexing
-(sending a message while also transmitting a big file).
+(e.g. sending a message while also transmitting a big file).
 
 #### Transport
 The underlying protocol powering the data transfers.
@@ -25,7 +25,34 @@ Currently, two implementations of a TCP transport are available. `marais.filet.t
 uses `java.nio.AsynchronousSocketChannel`. The other implementation is based on [Ktor](https://ktor.io) raw sockets
 and is provided through the `filet-ktor` artifact.
 
-### API (Kotlin)
+### Implementation details
+```
+Client -> Queue (Objects) -> [Module 0, Module 1, ...] -> Queue (Buffers) -> Transport
+```
+
+#### Threading model
+This library is tightly coupled with Kotlin coroutines. Even though its considered bad practice,
+this library will spawn coroutines by itself (e.g. when calling the `start` methods on Client and Server).
+Those coroutines are scheduled to run on Default and IO thread pools.
+
+## Installation
+With Gradle :
+```kotlin
+repositories {
+    // Artifacts are currently only published on Jitpack
+    maven {
+        setUrl("https://jitpack.io")
+    }
+}
+dependencies {
+    // Main module
+    implementation("com.github.Gui-Yom.filet:filet:0.2.0")
+    // Additional module to use the ktor sockets transport implementation
+    implementation("com.github.Gui-Yom.filet:filet-ktor:0.2.0")
+}
+```
+
+## API (Kotlin)
 ```kotlin
 val server = Server()
 server.registerSerializer(DummyPacket)
@@ -69,11 +96,5 @@ class DummyPacket(val a: Int = 0) {
 }
 ```
 
-### Inner workings
-```
-Client -> Queue (Objects) -> [Module 0, Module 1, ...] -> Queue (Buffers) -> Transport
-```
-
-### TODO
- - Okio integration (no more fiddling with raw ByteBuffer).
- - Integration with kotlinx.serialization
+## TODO
+ - Integration with kotlinx.serialization though a module
