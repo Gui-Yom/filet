@@ -8,7 +8,7 @@ import java.io.Closeable
  * Holds common tools like serializers and modules.
  */
 abstract class BaseEndpoint internal constructor(
-    internal val pipeline: Pipeline,
+    val pipeline: Pipeline,
     internal val serializers: MutableMap<Byte, PacketSerializer<Any>> = mutableMapOf()
 ) : Closeable {
 

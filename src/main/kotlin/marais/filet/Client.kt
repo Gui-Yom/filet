@@ -114,12 +114,15 @@ class Client(
 
                 // Launch into Default thread pool to process modules and execute user code
                 scope.launch(context = Dispatchers.Default) {
-                    val (obj, buf) = pipeline.processIn(ctx, ctx.serializer.read(data), total)
-                    // Use the server packet handler when this client is a remote
-                    if (server == null)
-                        packetHandler(this@Client, obj)
-                    else
-                        server!!.packetHandler(this@Client, server!!, obj)
+                    val a = pipeline.processIn(ctx, ctx.serializer.read(data), total)
+                    if (a != null) {
+                        val (obj, buf) = a
+                        // Use the server packet handler when this client is a remote
+                        if (server == null)
+                            packetHandler(this@Client, obj)
+                        else
+                            server!!.packetHandler(this@Client, server!!, obj)
+                    }
                 }
             }
         }
@@ -191,10 +194,13 @@ class Client(
                 val ctx = Context(serializer, serializers, transmitId, effectivePriority)
 
                 // The final buffer we'll send to the transport
-                val finalBuffer = pipeline.processOut(ctx, obj, buffer).second
+                val a = pipeline.processOut(ctx, obj, buffer)
+                if (a != null) {
+                    val finalBuffer = a.second
 
-                // Sends the buffer to the sender loop, the queue will automatically sort buffers based on the priority
-                queue.send(effectivePriority to finalBuffer)
+                    // Sends the buffer to the sender loop, the queue will automatically sort buffers based on the priority
+                    queue.send(effectivePriority to finalBuffer)
+                }
             }
         }
     }
