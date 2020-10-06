@@ -6,11 +6,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import marais.filet.pipeline.Context
 import marais.filet.pipeline.Module
+import marais.filet.pipeline.ModuleAdapter
 import marais.filet.pipeline.Pipeline
 import marais.filet.transport.ClientTransport
 import marais.filet.utils.PriorityChannel
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
+import kotlin.reflect.KClass
 
 typealias ClientPacketHandler = suspend Client.(obj: Any) -> Unit
 
@@ -69,6 +73,8 @@ class Client(
      */
     private var receiveJob: Job? = null
 
+    val isLocal = server == null
+
     /**
      * Set the receiver block, this block will be called each time a packet is received and can be called concurrently.
      *
@@ -106,6 +112,7 @@ class Client(
                 transport!!.readBytes(data)
                 data.reset()
                 val total = ByteBuffer.allocate(4 + 1 + 4 + size).put(header).put(data).mark()
+                //println("total : ${total.array().contentToString()}")
                 data.reset()
 
                 val serializer = serializers[header[4]]
@@ -121,7 +128,7 @@ class Client(
                         if (server == null)
                             packetHandler(this@Client, obj)
                         else
-                            server!!.packetHandler(this@Client, server!!, obj)
+                            server!!.packetHandler(server!!, this@Client, obj)
                     }
                 }
             }
@@ -157,6 +164,48 @@ class Client(
         require(!isClosed)
         // TODO Maybe we could reuse the object, since only the transmission id is changed
         block(DefaultTransmission(transmitId))
+    }
+
+    fun transmit(obj: Any) {
+        transmit {
+            sendPacket(obj)
+        }
+    }
+
+    /**
+     * Suspends till a packet of desired type arrives
+     */
+    suspend fun <T : Any> catch(clazz: KClass<T>): T = suspendCoroutine { cont ->
+        pipeline.addFirst(object : ModuleAdapter() {
+            override fun processIn(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer>? {
+                // Should return true if the packet has been consumed
+                if (obj::class == clazz) {
+                    // Resume the coroutine
+                    cont.resume(obj as T)
+                    // Remove the module
+                    // FIXME might be flawed
+                    pipeline.removeAll { it === this }
+                    return null
+                } else return obj to buf
+            }
+        })
+    }
+
+    /**
+     * Suspends till a packet of desired type arrives
+     */
+    suspend fun catch(): Any = suspendCoroutine { cont ->
+        pipeline.addFirst(object : ModuleAdapter() {
+            override fun processIn(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer>? {
+                // Should return true if the packet has been consumed
+                // Resume the coroutine
+                cont.resume(obj)
+                // Remove the module
+                // FIXME might be flawed
+                pipeline.removeAll { it === this }
+                return null
+            }
+        })
     }
 
     /**

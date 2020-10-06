@@ -9,6 +9,10 @@ import java.nio.ByteBuffer
  */
 interface ClientTransport : Closeable {
 
+    val localAddr: String
+
+    val remoteAddr: String
+
     suspend fun init()
 
     /**
@@ -32,6 +36,8 @@ interface ClientTransport : Closeable {
  * The server should not bind/listen for connections before a call to [init].
  */
 interface ServerTransport : Closeable {
+
+    val localAddr: String
 
     suspend fun init()
 

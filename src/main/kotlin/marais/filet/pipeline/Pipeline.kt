@@ -35,7 +35,7 @@ class Pipeline(modules: List<Module>) {
     }
 
     /**
-     * Add a module to be the last executed in INPUT direction. (or first in OUTPUT direction)
+     * Add a module to be the last executed in OUTPUT direction. (or first in INPUT direction)
      */
     fun addLast(module: Module) {
         modules.addLast(module)

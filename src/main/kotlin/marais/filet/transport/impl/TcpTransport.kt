@@ -26,6 +26,11 @@ object TcpTransport {
             require(channel.remoteAddress != null)
         }
 
+        override val localAddr: String
+            get() = "tcp:${channel.localAddress}"
+        override val remoteAddr: String
+            get() = "tcp:${channel.remoteAddress}"
+
         override suspend fun init() {
             require(channel.isOpen)
             if (channel.remoteAddress == null) {
@@ -54,6 +59,9 @@ object TcpTransport {
     class Server(val addr: SocketAddress) : ServerTransport {
 
         val server = AsynchronousServerSocketChannel.open()
+
+        override val localAddr: String
+            get() = "tcp:${server.localAddress}"
 
         override suspend fun init() {
             server.bind(addr, 4)

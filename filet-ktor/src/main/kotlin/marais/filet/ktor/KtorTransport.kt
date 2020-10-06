@@ -27,6 +27,11 @@ object KtorTransport {
         private var readChannel: ByteReadChannel? = null
         private var writeChannel: ByteWriteChannel? = null
 
+        override val localAddr: String
+            get() = "ktor:${socket!!.localAddress}"
+        override val remoteAddr: String
+            get() = "ktor:${socket!!.remoteAddress}"
+
         @KtorExperimentalAPI
         override suspend fun init() {
             if (socket == null) {
@@ -64,6 +69,8 @@ object KtorTransport {
     class Server(val addr: NetworkAddress) : ServerTransport {
 
         private var serverSocket: ServerSocket? = null
+        override val localAddr: String
+            get() = "ktor:${serverSocket!!.localAddress}"
 
         @KtorExperimentalAPI
         override suspend fun init() {

@@ -8,8 +8,8 @@ import marais.filet.pipeline.Module
 import marais.filet.transport.ServerTransport
 import java.util.*
 
-typealias ServerPacketHandler = suspend Client.(Server, obj: Any) -> Unit
-typealias ConnectionHandler = suspend Client.(Server) -> Boolean
+typealias ServerPacketHandler = suspend Server.(it: Client, obj: Any) -> Unit
+typealias ConnectionHandler = suspend Server.(it: Client) -> Boolean
 
 /**
  * The server listen for connections from clients.
@@ -55,13 +55,36 @@ class Server(internal val scope: CoroutineScope, vararg modules: Module) : BaseE
                 val remote = Client(transport.accept(), this@Server)
 
                 // TODO do not block the accept loop
-                if (connectionHandler(remote, this@Server)) {
+                if (connectionHandler(this@Server, remote)) {
                     remote.start()
                     clients.add(remote)
                 } else {
                     remote.close()
                 }
             }
+        }
+    }
+
+    /**
+     * Broadcast a packet to all of connected clients.
+     */
+    fun broadcast(obj: Any) {
+        clients.forEach {
+            it.transmit {
+                sendPacket(obj)
+            }
+        }
+    }
+
+    /**
+     * Broadcast a packet to all of connected clients that matches the predicate.
+     */
+    fun broadcast(obj: Any, predicate: (Client) -> Boolean) {
+        clients.forEach {
+            if (predicate(it))
+                it.transmit {
+                    sendPacket(obj)
+                }
         }
     }
 
