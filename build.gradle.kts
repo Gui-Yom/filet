@@ -47,7 +47,7 @@ allprojects {
 
         java {
             sourceCompatibility = JavaVersion.VERSION_11
-            //withSourcesJar()
+            withSourcesJar()
         }
 
         test {
@@ -88,7 +88,7 @@ allprojects {
             publications {
                 create<MavenPublication>("Filet") {
                     from(project.components["java"])
-                    //artifact(dokkaJar)
+                    artifact(dokkaJar)
                     pom {
                         name.set("Filet")
                         description.set("Networking made easy")
