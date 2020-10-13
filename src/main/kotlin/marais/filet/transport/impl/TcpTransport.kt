@@ -56,7 +56,7 @@ object TcpTransport {
         }
     }
 
-    class Server(val addr: SocketAddress) : ServerTransport {
+    class Server(val addr: SocketAddress?) : ServerTransport {
 
         val server = AsynchronousServerSocketChannel.open()
 

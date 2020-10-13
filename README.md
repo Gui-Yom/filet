@@ -97,4 +97,6 @@ class DummyPacket(val a: Int = 0) {
 ```
 
 ## TODO
- - Integration with kotlinx.serialization though a module
+ - Move serialization to a separate system to allow easier extension
+ - Integrate with kotlinx.serialization through a module
+ - Unified address system

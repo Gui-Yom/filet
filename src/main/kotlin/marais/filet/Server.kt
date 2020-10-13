@@ -70,8 +70,8 @@ class Server(internal val scope: CoroutineScope, vararg modules: Module) : BaseE
      */
     fun broadcast(obj: Any) {
         clients.forEach {
-            it.transmit {
-                sendPacket(obj)
+            it.send {
+                send(obj)
             }
         }
     }
@@ -82,8 +82,8 @@ class Server(internal val scope: CoroutineScope, vararg modules: Module) : BaseE
     fun broadcast(obj: Any, predicate: (Client) -> Boolean) {
         clients.forEach {
             if (predicate(it))
-                it.transmit {
-                    sendPacket(obj)
+                it.send {
+                    send(obj)
                 }
         }
     }

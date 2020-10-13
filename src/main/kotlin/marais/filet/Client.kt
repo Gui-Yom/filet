@@ -86,7 +86,7 @@ class Client(
 
     /**
      * Initialize the underlying transport and start the receiver and sender loops.
-     * It is possible to [transmit] after calling this method.
+     * It is possible to [send] after calling this method.
      */
     suspend fun start(transport: ClientTransport) {
         this.transport = transport
@@ -104,11 +104,12 @@ class Client(
             val header = ByteBuffer.allocate(4 + 1 + 4).mark()
             while (true) {
                 header.reset()
-                // TODO okio, fix terrible buffer allocation and copies
+                // TODO fix terrible buffer allocation and copies
                 transport!!.readBytes(header)
                 header.reset()
                 val size = header.getInt(5)
                 val data = ByteBuffer.allocate(size).mark()
+                //println(header.array().contentToString())
                 transport!!.readBytes(data)
                 data.reset()
                 val total = ByteBuffer.allocate(4 + 1 + 4 + size).put(header).put(data).mark()
@@ -149,8 +150,8 @@ class Client(
      * Opens up a new transmission to send packets to the underlying transport.
      * The transmission id is automatically generated.
      */
-    fun transmit(block: Transmission.() -> Unit) {
-        transmit(nextTransmissionId.getAndIncrement(), block)
+    fun send(block: Transmission.() -> Unit) {
+        send(nextTransmissionId.getAndIncrement(), block)
     }
 
     /**
@@ -158,7 +159,7 @@ class Client(
      *
      * @param transmitId the transmission id to use
      */
-    fun transmit(transmitId: Int, block: Transmission.() -> Unit) {
+    fun send(transmitId: Int, block: Transmission.() -> Unit) {
 
         // TODO handle gracefully
         require(!isClosed)
@@ -166,16 +167,16 @@ class Client(
         block(DefaultTransmission(transmitId))
     }
 
-    fun transmit(obj: Any) {
-        transmit {
-            sendPacket(obj)
+    fun send(obj: Any) {
+        send {
+            send(obj)
         }
     }
 
     /**
      * Suspends till a packet of desired type arrives
      */
-    suspend fun <T : Any> catch(clazz: KClass<T>): T = suspendCoroutine { cont ->
+    suspend fun <T : Any> receive(clazz: KClass<T>): T = suspendCoroutine { cont ->
         pipeline.addFirst(object : ModuleAdapter() {
             override fun processIn(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer>? {
                 // Should return true if the packet has been consumed
@@ -194,7 +195,7 @@ class Client(
     /**
      * Suspends till a packet of desired type arrives
      */
-    suspend fun catch(): Any = suspendCoroutine { cont ->
+    suspend fun receive(): Any = suspendCoroutine { cont ->
         pipeline.addFirst(object : ModuleAdapter() {
             override fun processIn(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer>? {
                 // Should return true if the packet has been consumed
@@ -222,12 +223,13 @@ class Client(
     }
 
     inner class DefaultTransmission internal constructor(override val transmitId: Int) : Transmission {
-        override fun sendPacket(obj: Any, priority: Int) {
+        override fun send(obj: Any, priority: Int) {
             // TODO use a backbuffer
-            // TODO use OKIO
             // TODO use a buffer pool
             // Return immediately after scheduling this coroutine.
-            scope.launch {
+            //println("before")
+            val job = scope.launch {
+                //println("after")
                 // Try to find an appropriate serializer for the object
                 val serializer = serializers.values.find { it.getPacketKClass() == obj::class }
                     ?: throw SerializerUnavailable(obj::class)
@@ -251,6 +253,7 @@ class Client(
                     queue.send(effectivePriority to finalBuffer)
                 }
             }
+            //println("${job.isActive}")
         }
     }
 }

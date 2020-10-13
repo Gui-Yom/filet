@@ -21,8 +21,8 @@ object TestClient {
         }
         client.registerSerializer(DummyPacket)
         client.start(DummyTransport.Client)
-        client.transmit {
-            sendPacket(DummyPacket())
+        client.send {
+            send(DummyPacket())
         }
     }
 
