@@ -1,16 +1,18 @@
 package marais.filet.pipeline.impl
 
+import marais.filet.pipeline.BytesModule
 import marais.filet.pipeline.Context
-import marais.filet.pipeline.Module
+import marais.filet.pipeline.ObjectModule
 import java.nio.ByteBuffer
 
-object DummyModule : Module {
+object DummyObjectModule : ObjectModule {
+    override fun processIn(ctx: Context, obj: Any): Any? = obj
 
-    override fun processIn(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer> {
-        return obj to buf
-    }
+    override fun processOut(ctx: Context, obj: Any): Any? = obj
+}
 
-    override fun processOut(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer> {
-        return obj to buf
-    }
+object DummyBytesModule : BytesModule {
+    override fun processIn(ctx: Context, buf: ByteBuffer): ByteBuffer? = buf
+
+    override fun processOut(ctx: Context, buf: ByteBuffer): ByteBuffer? = buf
 }

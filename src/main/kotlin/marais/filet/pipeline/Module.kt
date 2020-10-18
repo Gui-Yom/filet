@@ -1,23 +1,34 @@
 package marais.filet.pipeline
 
-import marais.filet.PacketSerializer
+import marais.filet.PacketId
 import java.nio.ByteBuffer
 
-interface Module {
-    fun processIn(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer>?
+interface ObjectModule {
+    fun processIn(ctx: Context, obj: Any): Any?
 
-    fun processOut(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer>?
+    fun processOut(ctx: Context, obj: Any): Any?
 }
 
-abstract class ModuleAdapter : Module {
-    override fun processIn(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer>? = obj to buf
+interface BytesModule {
+    fun processIn(ctx: Context, buf: ByteBuffer): ByteBuffer?
 
-    override fun processOut(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer>? = obj to buf
+    fun processOut(ctx: Context, buf: ByteBuffer): ByteBuffer?
+}
+
+abstract class ObjectModuleAdapter : ObjectModule {
+    override fun processIn(ctx: Context, obj: Any): Any? = obj
+
+    override fun processOut(ctx: Context, obj: Any): Any? = obj
+}
+
+abstract class BytesModuleAdapter : BytesModule {
+    override fun processIn(ctx: Context, buf: ByteBuffer): ByteBuffer? = buf
+
+    override fun processOut(ctx: Context, buf: ByteBuffer): ByteBuffer? = buf
 }
 
 data class Context(
-    val serializer: PacketSerializer<Any>,
-    val serializers: Map<Byte, PacketSerializer<Any>>,
     val transmission: Int,
+    val packetId: PacketId,
     val priority: Int?
 )

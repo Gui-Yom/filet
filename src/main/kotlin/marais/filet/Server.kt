@@ -4,7 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import marais.filet.pipeline.Module
+import marais.filet.pipeline.Pipeline
 import marais.filet.transport.ServerTransport
 import java.util.*
 
@@ -14,7 +14,7 @@ typealias ConnectionHandler = suspend Server.(it: Client) -> Boolean
 /**
  * The server listen for connections from clients.
  */
-class Server(internal val scope: CoroutineScope, vararg modules: Module) : BaseEndpoint(*modules) {
+class Server(internal val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpoint(pipeline) {
 
     private var transport: ServerTransport? = null
 

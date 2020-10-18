@@ -14,4 +14,4 @@ pluginManagement {
 }
 
 rootProject.name = "filet"
-include("filet-ktor")
+include("transport-ktor", "ser-jackson")

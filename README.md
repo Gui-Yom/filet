@@ -1,36 +1,42 @@
 # Filet
-Kotlin library for efficient networking based on NIO Channels and coroutines.
+Kotlin library for efficient networking based on coroutines.
 
 ## Principles
 
-### Base protocol
+### Protocol
+Sending multiples messages of variable size over a single connection is challenging.
+For example : sending a large file "clogs the pipe", effectively preventing us
+from sending anything while the transfer isn't finished.
+The solution here is to wrap parts into small packets that won't block the stream for too long.
 
 #### Packet
-Unit of transmission with size <= MAX_PACKET_SIZE <= Integer.MAX_SIZE.
-Use a packet id representing the type of the packet (byte).
+Unit of transmission, sent atomically in one piece.
+Its size is inferior to MAX_PACKET_SIZE, a value set based on the speed of the underlying connection.
+The smaller this value, the more reactive the transmission. However, this will also affect negatively the
+overall efficiency when there are not so many transmissions happening at the same time (less buffering).
+The overhead of a single packet is currently 9 bytes (transmissionId: 4, packetId: 1, length: 4).
+The packet also has a priority, so we can decide whether to send it asap or after other packets.
 
 ##### Serialization
-There is no packet class, you can bring your own POJO and a serializer/deserializer to/from bytes for it.
+Bring your own POJO. Define a custom (de)serializer for it or use a common serialization format.
+Currently, there are integrations for jackson-databind through the `ser-jackson` artifact.
 
 #### Transmission
-A relatively coherent piece of data (text message, file).
-Made up of one or more packets.
-Use a transmission id (byte).
-Fragmenting a transmission in packets allows for stream multiplexing
-(e.g. sending a message while also transmitting a big file).
+The new problem here is that we receive pieces of data in disorder.
+A transmission is holding those packets together through a common transmission ID sent with each packet.
 
-#### Transport
-The underlying protocol powering the data transfers.
-Currently, two implementations of a TCP transport are available. `marais.filet.transport.impl.TcpTransport` directly
-uses `java.nio.AsynchronousSocketChannel`. The other implementation is based on [Ktor](https://ktor.io) raw sockets
-and is provided through the `filet-ktor` artifact.
+### Transport
+Filet itself is built over an abstraction layer for the underlying transport.
+Currently, two implementations for a TCP transport are available. `marais.filet.transport.impl.TcpTransport` directly
+uses Java NIO `AsynchronousSocketChannel`. The other implementation is based on [Ktor](https://ktor.io) raw sockets
+and is provided through the `transport-ktor` artifact.
 
-### Implementation details
+## Implementation details
 ```
-Client -> Queue (Objects) -> [Module 0, Module 1, ...] -> Queue (Buffers) -> Transport
+Client -> [Modules (Objects)] -> Serializer -> [Modules (Bytes)] -> Transport
 ```
 
-#### Threading model
+### Threading model
 This library is tightly coupled with Kotlin coroutines. Even though its considered bad practice,
 this library will spawn coroutines by itself (e.g. when calling the `start` methods on Client and Server).
 Those coroutines are scheduled to run on Default and IO thread pools.
@@ -46,13 +52,16 @@ repositories {
 }
 dependencies {
     // Main module
-    implementation("com.github.Gui-Yom.filet:filet:0.2.0")
+    implementation("com.github.Gui-Yom.filet:filet:0.5.0")
     // Additional module to use the ktor sockets transport implementation
-    implementation("com.github.Gui-Yom.filet:filet-ktor:0.2.0")
+    implementation("com.github.Gui-Yom.filet:transport-ktor:0.5.0")
+    // Additional module to use jackson databind as the serialization provider
+    implementation("com.github.Gui-Yom.filet:ser-jackson:0.5.0")
 }
 ```
 
-## API (Kotlin)
+## Example usage (Kotlin)
+**Outdated**
 ```kotlin
 val server = Server()
 server.registerSerializer(DummyPacket)
@@ -73,7 +82,7 @@ val client = Client()
 client.registerSerializer(DummyPacket)
 client.handler {
     when (it) {
-
+        // Do something with it
     }
 }
 client.start(TcpTransport.Client(InetSocketAddress(InetAddress.getLoopbackAddress(), 4785)))
@@ -97,6 +106,10 @@ class DummyPacket(val a: Int = 0) {
 ```
 
 ## TODO
- - Move serialization to a separate system to allow easier extension
- - Integrate with kotlinx.serialization through a module
+ - Integrate kotlinx.serialization
  - Unified address system
+ - Allow a server to listen on multiple transports
+ - Annotation processing to map objects to packet identifiers at compilation
+
+## 1.0.0 ?
+When the api is stable enough

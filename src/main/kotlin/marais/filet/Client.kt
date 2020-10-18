@@ -4,9 +4,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import marais.filet.pipeline.BytesModule
 import marais.filet.pipeline.Context
-import marais.filet.pipeline.Module
-import marais.filet.pipeline.ModuleAdapter
+import marais.filet.pipeline.ObjectModule
 import marais.filet.pipeline.Pipeline
 import marais.filet.transport.ClientTransport
 import marais.filet.utils.PriorityChannel
@@ -24,13 +24,17 @@ typealias ClientPacketHandler = suspend Client.(obj: Any) -> Unit
 class Client(
     private val scope: CoroutineScope,
     pipeline: Pipeline,
-    serializers: MutableMap<Byte, PacketSerializer<Any>> = mutableMapOf()
-) : BaseEndpoint(pipeline, serializers) {
+    registry: ObjectRegistry
+) : BaseEndpoint(pipeline) {
 
     /**
      * @param scope the scope used to launch new coroutines
      */
-    constructor(scope: CoroutineScope, vararg modules: Module) : this(scope, Pipeline(*modules))
+    constructor(
+        scope: CoroutineScope, objectModules: List<ObjectModule>,
+        serProvider: SerializerProvider,
+        bytesModules: List<BytesModule>
+    ) : this(scope, Pipeline(objectModules, serProvider, bytesModules))
 
     /**
      * Used when creating the client from a remote connection in Server.
@@ -38,8 +42,7 @@ class Client(
     internal constructor(
         transport: ClientTransport,
         server: Server
-    )
-            : this(server.scope, server.pipeline, server.serializers) {
+    ) : this(server.scope, server.pipeline) {
         this.transport = transport
         this.server = server
     }
@@ -110,21 +113,16 @@ class Client(
                 val size = header.getInt(5)
                 val data = ByteBuffer.allocate(size).mark()
                 //println(header.array().contentToString())
-                transport!!.readBytes(data)
+                if (transport!!.readBytes(data) != size) {
+                    // TODO handle gracefully
+                    throw IllegalStateException("Finished early")
+                }
                 data.reset()
-                val total = ByteBuffer.allocate(4 + 1 + 4 + size).put(header).put(data).mark()
-                //println("total : ${total.array().contentToString()}")
-                data.reset()
-
-                val serializer = serializers[header[4]]
-                require(serializer != null)
-                val ctx = Context(serializer, serializers, header.getInt(0), null)
 
                 // Launch into Default thread pool to process modules and execute user code
-                scope.launch(context = Dispatchers.Default) {
-                    val a = pipeline.processIn(ctx, ctx.serializer.read(data), total)
-                    if (a != null) {
-                        val (obj, buf) = a
+                launch(context = Dispatchers.Default) {
+                    val obj = pipeline.processIn(Context(header.getInt(0), header.get(4), null), data)
+                    if (obj != null) {
                         // Use the server packet handler when this client is a remote
                         if (server == null)
                             packetHandler(this@Client, obj)
@@ -214,11 +212,12 @@ class Client(
      */
     override fun close() {
         super.close()
-        // Shutdown input
-        receiveJob?.cancel()
         // Shutdown output
         queue.close()
         sendJob?.cancel()
+        // Shutdown input
+        receiveJob?.cancel()
+        // Shutdown transport
         transport?.close()
     }
 
@@ -226,34 +225,29 @@ class Client(
         override fun send(obj: Any, priority: Int) {
             // TODO use a backbuffer
             // TODO use a buffer pool
-            // Return immediately after scheduling this coroutine.
-            //println("before")
-            val job = scope.launch {
-                //println("after")
-                // Try to find an appropriate serializer for the object
-                val serializer = serializers.values.find { it.getPacketKClass() == obj::class }
-                    ?: throw SerializerUnavailable(obj::class)
-                // Allocate space for the serialization
-                // Here we should have a read buffer and a write buffer to send down the pipeline
-                val buffer = ByteBuffer.allocate(PacketSerializer.MAX_PACKET_SIZE * 2)
-                buffer.mark()
-                // Serialization happens here
-                serializer.write(transmitId, obj, buffer)
+            // Allocate space for the serialization
+            // Here we should have a read buffer and a write buffer to send down the pipeline
+            val buffer = ByteBuffer.allocate(MAX_PACKET_SIZE + 9)
+            buffer.mark()
+            buffer.putInt(transmitId)
+            buffer.put(0)
+            buffer.position(9)
 
-                val effectivePriority = if (priority < 0) serializer.priority else priority
-                // The pipeline context
-                val ctx = Context(serializer, serializers, transmitId, effectivePriority)
+            val effectivePriority = if (priority < 0) serializer.priority else priority
+            // The pipeline context
+            val ctx = Context(transmitId, 0, effectivePriority)
 
-                // The final buffer we'll send to the transport
-                val a = pipeline.processOut(ctx, obj, buffer)
-                if (a != null) {
-                    val finalBuffer = a.second
+            // The final buffer we'll send to the transport
+            val a = pipeline.processOut(ctx, obj, buffer)
+            // Return to mark and put size
+            buffer.putInt(5, buffer.position() - 9)
 
-                    // Sends the buffer to the sender loop, the queue will automatically sort buffers based on the priority
-                    queue.send(effectivePriority to finalBuffer)
-                }
+            if (a != null) {
+                val finalBuffer = a.second
+
+                // Sends the buffer to the sender loop, the queue will automatically sort buffers based on the priority
+                queue.send(effectivePriority to finalBuffer)
             }
-            //println("${job.isActive}")
         }
     }
 }
