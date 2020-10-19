@@ -1,7 +1,6 @@
 package marais.filet.pipeline
 
 import marais.filet.GlobalPacketSerializer
-import marais.filet.SerializerProvider
 import java.nio.ByteBuffer
 import java.util.*
 
@@ -10,7 +9,7 @@ import java.util.*
  */
 class Pipeline(
     objectModules: List<ObjectModule>,
-    private val serializer: GlobalPacketSerializer,
+    val serializer: GlobalPacketSerializer,
     bytesModules: List<BytesModule>
 ) {
 

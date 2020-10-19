@@ -10,6 +10,8 @@ abstract class BaseEndpoint internal constructor(
     val pipeline: Pipeline
 ) : Closeable {
 
+    protected val registry = pipeline.serializer.registry
+
     /**
      * true if the endpoint is closed
      */

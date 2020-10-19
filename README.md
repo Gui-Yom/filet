@@ -110,6 +110,8 @@ class DummyPacket(val a: Int = 0) {
  - Unified address system
  - Allow a server to listen on multiple transports
  - Annotation processing to map objects to packet identifiers at compilation
+ - provide an UDT transport impl
+ - Find something for the jungle of type casts in the serialization system that is making me want to commit die
 
 ## 1.0.0 ?
 When the api is stable enough

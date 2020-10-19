@@ -23,8 +23,7 @@ typealias ClientPacketHandler = suspend Client.(obj: Any) -> Unit
  */
 class Client(
     private val scope: CoroutineScope,
-    pipeline: Pipeline,
-    registry: ObjectRegistry
+    pipeline: Pipeline
 ) : BaseEndpoint(pipeline) {
 
     /**
@@ -32,9 +31,9 @@ class Client(
      */
     constructor(
         scope: CoroutineScope, objectModules: List<ObjectModule>,
-        serProvider: SerializerProvider,
+        serializer: GlobalPacketSerializer,
         bytesModules: List<BytesModule>
-    ) : this(scope, Pipeline(objectModules, serProvider, bytesModules))
+    ) : this(scope, Pipeline(objectModules, serializer, bytesModules))
 
     /**
      * Used when creating the client from a remote connection in Server.
@@ -225,6 +224,9 @@ class Client(
         override fun send(obj: Any, priority: Int) {
             // TODO use a backbuffer
             // TODO use a buffer pool
+
+            val packetId = registry[obj::class] ?: throw ClassUnregisteredException(obj::class)
+
             // Allocate space for the serialization
             // Here we should have a read buffer and a write buffer to send down the pipeline
             val buffer = ByteBuffer.allocate(MAX_PACKET_SIZE + 9)
@@ -233,9 +235,9 @@ class Client(
             buffer.put(0)
             buffer.position(9)
 
-            val effectivePriority = if (priority < 0) serializer.priority else priority
+            val effectivePriority = if (priority < 0) registry.getPriority(obj::class) else priority
             // The pipeline context
-            val ctx = Context(transmitId, 0, effectivePriority)
+            val ctx = Context(transmitId, packetId, effectivePriority)
 
             // The final buffer we'll send to the transport
             val a = pipeline.processOut(ctx, obj, buffer)

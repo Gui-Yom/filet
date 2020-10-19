@@ -7,10 +7,10 @@ import kotlin.reflect.KClass
  * Base class for objects that convert objects to/from bytes.
  * It also exposes some useful metadata to the client (like packet id and priority).
  */
-abstract class GlobalPacketSerializer(val registry: ObjectRegistry) {
+abstract class GlobalPacketSerializer(val registry: ClassRegistry = ClassRegistry()) {
 
     fun <T : Any> deserialize(buffer: ByteBuffer, packetId: PacketId): T {
-        val clazz = registry[packetId] as? KClass<T> ?: throw SerializerUnavailable(packetId)
+        val clazz = registry[packetId] as? KClass<T> ?: throw ClassUnregisteredException(packetId)
         return deserialize(buffer, clazz)
     }
 
@@ -24,9 +24,11 @@ typealias PacketId = Byte
 const val MAX_PACKET_SIZE = 8192
 
 class DefaultGlobalSerializer(vararg serializers: CustomPacketSerializer<*>) :
-    GlobalPacketSerializer(ObjectRegistry(serializers.map { Triple(it.getPacketKClass(), it.packetId, it.priority) })) {
+    GlobalPacketSerializer(ClassRegistry(serializers.map {
+        RegistryEntry(it.getPacketKClass(), it.packetId, it.priority)
+    })) {
 
-    val serializers = mutableMapOf<KClass<*>, CustomPacketSerializer<Any>>()
+    private val serializers = mutableMapOf<KClass<*>, CustomPacketSerializer<Any>>()
 
     init {
         serializers.forEach {
@@ -47,12 +49,12 @@ class DefaultGlobalSerializer(vararg serializers: CustomPacketSerializer<*>) :
     }
 
     override fun <T : Any> deserialize(buffer: ByteBuffer, clazz: KClass<T>): T {
-        val s = getSer(clazz) ?: throw SerializerUnavailable(clazz)
+        val s = getSer(clazz) ?: throw ClassUnregisteredException(clazz)
         return s.deserialize(buffer)
     }
 
     override fun <T : Any> serialize(obj: T, out: ByteBuffer) {
-        val s = getSer(obj::class) ?: throw SerializerUnavailable(obj::class)
+        val s = getSer(obj::class) as? CustomPacketSerializer<T> ?: throw ClassUnregisteredException(obj::class)
         s.serialize(obj, out)
     }
 }
