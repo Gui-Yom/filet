@@ -103,11 +103,19 @@ class Pipeline(
         bytesModules.addFirst(module)
     }
 
-    fun removeAllObjectModules(predicate: (ObjectModule) -> Boolean) {
+    fun removeAllO(predicate: (ObjectModule) -> Boolean) {
         objectModules.removeAll(predicate)
     }
 
-    fun removeAllBytesModules(predicate: (BytesModule) -> Boolean) {
+    fun removeAllB(predicate: (BytesModule) -> Boolean) {
         bytesModules.removeAll(predicate)
+    }
+
+    fun removeO(module: ObjectModule) {
+        objectModules.remove(module)
+    }
+
+    fun removeB(module: BytesModule) {
+        bytesModules.remove(module)
     }
 }

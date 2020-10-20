@@ -1,6 +1,3 @@
-# Module filet
-Kotlin library for efficient networking based on NIO Channels and coroutines.
-
 # Package marais.filet.jackson
-yay
-
+Integrate jackson-databind as a serializer.
+Use the serialization format of your choice.

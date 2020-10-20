@@ -19,5 +19,5 @@ class ClassUnregisteredException(message: String) : RuntimeException(message) {
      *
      * @param packetType the packetType byte of the packet we couldn't find a [GlobalPacketSerializer] for.
      */
-    constructor(packetType: PacketId) : this("Packet identifier '$packetType' isn't registered to a class.")
+    constructor(packetType: PacketId) : this("Packet identifier '$packetType' is unknown.")
 }

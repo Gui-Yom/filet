@@ -147,7 +147,7 @@ class Client(
      * Opens up a new transmission to send packets to the underlying transport.
      * The transmission id is automatically generated.
      */
-    fun send(block: Transmission.() -> Unit) {
+    suspend fun send(block: suspend Transmission.() -> Unit) {
         send(nextTransmissionId.getAndIncrement(), block)
     }
 
@@ -156,7 +156,7 @@ class Client(
      *
      * @param transmitId the transmission id to use
      */
-    fun send(transmitId: Int, block: Transmission.() -> Unit) {
+    suspend fun send(transmitId: Int, block: suspend Transmission.() -> Unit) {
 
         // TODO handle gracefully
         require(!isClosed)
@@ -164,7 +164,7 @@ class Client(
         block(DefaultTransmission(transmitId))
     }
 
-    fun send(obj: Any) {
+    suspend fun send(obj: Any) {
         send {
             send(obj)
         }
@@ -174,33 +174,28 @@ class Client(
      * Suspends till a packet of desired type arrives
      */
     suspend fun <T : Any> receive(clazz: KClass<T>): T = suspendCoroutine { cont ->
-        pipeline.addFirst(object : ModuleAdapter() {
-            override fun processIn(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer>? {
-                // Should return true if the packet has been consumed
-                if (obj::class == clazz) {
+        pipeline.addFirst(object : ObjectModule {
+            override fun processIn(ctx: Context, obj: Any): Any? {
+                return if (obj::class == clazz) {
                     // Resume the coroutine
                     cont.resume(obj as T)
                     // Remove the module
                     // FIXME might be flawed
-                    pipeline.removeAll { it === this }
-                    return null
-                } else return obj to buf
+                    pipeline.removeO(this)
+                    null
+                } else obj
             }
         })
     }
 
     /**
-     * Suspends till a packet of desired type arrives
+     * Suspends till any packet arrives.
      */
     suspend fun receive(): Any = suspendCoroutine { cont ->
-        pipeline.addFirst(object : ModuleAdapter() {
-            override fun processIn(ctx: Context, obj: Any, buf: ByteBuffer): Pair<Any, ByteBuffer>? {
-                // Should return true if the packet has been consumed
-                // Resume the coroutine
+        pipeline.addFirst(object : ObjectModule {
+            override fun processIn(ctx: Context, obj: Any): Any? {
                 cont.resume(obj)
-                // Remove the module
-                // FIXME might be flawed
-                pipeline.removeAll { it === this }
+                pipeline.removeO(this)
                 return null
             }
         })
@@ -221,34 +216,29 @@ class Client(
     }
 
     inner class DefaultTransmission internal constructor(override val transmitId: Int) : Transmission {
-        override fun send(obj: Any, priority: Int) {
-            // TODO use a backbuffer
-            // TODO use a buffer pool
+        override suspend fun send(obj: Any, priority: Int) {
+            // TODO use a backbuffer / buffer pool
 
             val packetId = registry[obj::class] ?: throw ClassUnregisteredException(obj::class)
+            val effectivePriority = if (priority < 0)
+            // if previous line doesn't throw we should be fine (modulo thread safety)
+                registry.getPriority(obj::class)!!
+            else priority
 
-            // Allocate space for the serialization
-            // Here we should have a read buffer and a write buffer to send down the pipeline
-            val buffer = ByteBuffer.allocate(MAX_PACKET_SIZE + 9)
-            buffer.mark()
-            buffer.putInt(transmitId)
-            buffer.put(0)
-            buffer.position(9)
-
-            val effectivePriority = if (priority < 0) registry.getPriority(obj::class) else priority
             // The pipeline context
             val ctx = Context(transmitId, packetId, effectivePriority)
 
-            // The final buffer we'll send to the transport
-            val a = pipeline.processOut(ctx, obj, buffer)
-            // Return to mark and put size
-            buffer.putInt(5, buffer.position() - 9)
-
-            if (a != null) {
-                val finalBuffer = a.second
-
+            val data = pipeline.processOut(ctx, obj, ByteBuffer.allocate(MAX_PACKET_SIZE))
+            if (data != null) {
+                // Allocate space for the serialization
+                // Here we should have a read buffer and a write buffer to send down the pipeline
+                val buffer = ByteBuffer.allocate(9 + data.limit())
+                buffer.putInt(transmitId) // transmission id
+                buffer.put(packetId) // packet id
+                buffer.putInt(data.limit()) // length
+                buffer.put(data)
                 // Sends the buffer to the sender loop, the queue will automatically sort buffers based on the priority
-                queue.send(effectivePriority to finalBuffer)
+                queue.send(effectivePriority to buffer)
             }
         }
     }

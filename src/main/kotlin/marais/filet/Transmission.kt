@@ -10,5 +10,5 @@ interface Transmission {
     /**
      * Send packets through this transmission.
      */
-    fun send(obj: Any, priority: Int = -1)
+    suspend fun send(obj: Any, priority: Int = -1)
 }

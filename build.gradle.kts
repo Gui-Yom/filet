@@ -47,7 +47,7 @@ allprojects {
 
         java {
             sourceCompatibility = JavaVersion.VERSION_11
-            //withSourcesJar()
+            withSourcesJar()
         }
 
         test {
@@ -70,7 +70,7 @@ allprojects {
                 jdkVersion.set(11)
                 sourceLink {
                     localDirectory.set(file("$projectDir/src/main/kotlin"))
-                    remoteUrl.set(URL("https://github.com/Gui-Yom/filet/blob/master/src/main/kotlin"))
+                    remoteUrl.set(URL("https://github.com/Gui-Yom/filet/blob/master/$projectDir/src/main/kotlin"))
                     // For GitHub
                     remoteLineSuffix.set("#L")
                 }
@@ -88,7 +88,7 @@ allprojects {
             publications {
                 create<MavenPublication>("Filet") {
                     from(project.components["java"])
-                    //artifact(dokkaJar)
+                    artifact(dokkaJar)
                     pom {
                         name.set("Filet")
                         description.set("Networking made easy")

@@ -68,7 +68,7 @@ class Server(internal val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpo
     /**
      * Broadcast a packet to all of connected clients.
      */
-    fun broadcast(obj: Any) {
+    suspend fun broadcast(obj: Any) {
         clients.forEach {
             it.send {
                 send(obj)
@@ -79,7 +79,7 @@ class Server(internal val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpo
     /**
      * Broadcast a packet to all of connected clients that matches the predicate.
      */
-    fun broadcast(obj: Any, predicate: (Client) -> Boolean) {
+    suspend fun broadcast(obj: Any, predicate: (Client) -> Boolean) {
         clients.forEach {
             if (predicate(it))
                 it.send {
