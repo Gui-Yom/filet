@@ -22,7 +22,7 @@ allprojects {
 
     val filetVersion: String by project
 
-    group = "marais"
+    group = "marais.filet"
     version = filetVersion
 
     repositories {
@@ -70,7 +70,7 @@ allprojects {
                 jdkVersion.set(11)
                 sourceLink {
                     localDirectory.set(file("$projectDir/src/main/kotlin"))
-                    remoteUrl.set(URL("https://github.com/Gui-Yom/filet/blob/master/$projectDir/src/main/kotlin"))
+                    remoteUrl.set(URL("https://github.com/Gui-Yom/filet/blob/master/${project.name.let { if (it == "filet") "." else this }}/src/main/kotlin"))
                     // For GitHub
                     remoteLineSuffix.set("#L")
                 }

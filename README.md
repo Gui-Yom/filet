@@ -113,6 +113,7 @@ class DummyPacket(val a: Int = 0) {
  - provide an UDT transport impl
  - Find something for the jungle of type casts in the serialization system that is making me want to kill myself
  - Implement a buffer swap, or a buffer pool because the repeated buffer allocations makes me want to die even harder
+ - Moar documentation
 
 ## 1.0.0 ?
 When the api is stable enough
