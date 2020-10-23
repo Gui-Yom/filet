@@ -15,7 +15,7 @@ object TestClient {
 
         val client = Client(
             this,
-            Pipeline(listOf(DummyObjectModule), DefaultGlobalSerializer(DummyPacket), listOf(DummyBytesModule))
+            Pipeline(listOf(DummyObjectModule), DefaultPacketSerializer(DummyPacket), listOf(DummyBytesModule))
         )
         client.handler {
             when (it) {
@@ -31,7 +31,7 @@ object TestClient {
     }
 
     class DummyPacket(val a: Int = 0) {
-        companion object : CustomPacketSerializer<DummyPacket>(0) {
+        companion object : CustomObjectSerializer<DummyPacket>(0) {
             override fun deserialize(buffer: ByteBuffer): DummyPacket = DummyPacket(buffer.int)
 
             override fun getPacketKClass() = DummyPacket::class

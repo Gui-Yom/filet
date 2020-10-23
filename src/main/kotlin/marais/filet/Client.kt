@@ -31,7 +31,7 @@ class Client(
      */
     constructor(
         scope: CoroutineScope, objectModules: List<ObjectModule>,
-        serializer: GlobalPacketSerializer,
+        serializer: PacketSerializer,
         bytesModules: List<BytesModule>
     ) : this(scope, Pipeline(objectModules, serializer, bytesModules))
 
@@ -161,7 +161,7 @@ class Client(
         // TODO handle gracefully
         require(!isClosed)
         // TODO Maybe we could reuse the object, since only the transmission id is changed
-        block(DefaultTransmission(transmitId))
+        block(Transmission(transmitId))
     }
 
     suspend fun send(obj: Any) {
@@ -215,8 +215,9 @@ class Client(
         transport?.close()
     }
 
-    inner class DefaultTransmission internal constructor(override val transmitId: Int) : Transmission {
-        override suspend fun send(obj: Any, priority: Int) {
+    inner class Transmission internal constructor(val transmitId: Int) {
+
+        suspend fun send(obj: Any, priority: Int = -1) {
             // TODO use a backbuffer / buffer pool
 
             val packetId = registry[obj::class] ?: throw ClassUnregisteredException(obj::class)

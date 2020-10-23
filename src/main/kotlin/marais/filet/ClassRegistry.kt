@@ -10,7 +10,7 @@ typealias RegistryEntry = Triple<KClass<out Any>, PacketId, Int>
 
 /**
  * The registry containing the triplets : (Class, PacketId, Priority).
- * It is automatically populated when using a [DefaultGlobalSerializer].
+ * It is automatically populated when using a [DefaultPacketSerializer].
  *
  * This constructor initialize a [ClassRegistry] based on a set of registry entries.
  */

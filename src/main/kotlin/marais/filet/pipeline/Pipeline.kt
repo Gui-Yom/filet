@@ -1,6 +1,6 @@
 package marais.filet.pipeline
 
-import marais.filet.GlobalPacketSerializer
+import marais.filet.PacketSerializer
 import java.nio.ByteBuffer
 import java.util.*
 
@@ -9,9 +9,11 @@ import java.util.*
  */
 class Pipeline(
     objectModules: List<ObjectModule>,
-    val serializer: GlobalPacketSerializer,
+    val serializer: PacketSerializer,
     bytesModules: List<BytesModule>
 ) {
+
+    constructor(serializer: PacketSerializer) : this(listOf(), serializer, listOf())
 
     /**
      * OUT direction, first module is the first to be executed when sending a packet

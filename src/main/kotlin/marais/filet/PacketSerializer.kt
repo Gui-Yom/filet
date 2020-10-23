@@ -7,7 +7,7 @@ import kotlin.reflect.KClass
  * Base class for objects that convert objects to/from bytes.
  * It also exposes some useful metadata to the client (like packet id and priority).
  */
-abstract class GlobalPacketSerializer(val registry: ClassRegistry = ClassRegistry()) {
+abstract class PacketSerializer(val registry: ClassRegistry = ClassRegistry()) {
 
     fun <T : Any> deserialize(buffer: ByteBuffer, packetId: PacketId): T {
         val clazz = registry[packetId] as? KClass<T> ?: throw ClassUnregisteredException(packetId)
@@ -23,24 +23,24 @@ typealias PacketId = Byte
 
 const val MAX_PACKET_SIZE = 8192
 
-class DefaultGlobalSerializer(vararg serializers: CustomPacketSerializer<*>) :
-    GlobalPacketSerializer(ClassRegistry(serializers.map {
+class DefaultPacketSerializer(vararg serializers: CustomObjectSerializer<*>) :
+    PacketSerializer(ClassRegistry(serializers.map {
         RegistryEntry(it.getPacketKClass(), it.packetId, it.priority)
     })) {
 
-    private val serializers = mutableMapOf<KClass<*>, CustomPacketSerializer<Any>>()
+    private val serializers = mutableMapOf<KClass<*>, CustomObjectSerializer<Any>>()
 
     init {
         serializers.forEach {
-            addSerializer(it as CustomPacketSerializer<Any>)
+            addSerializer(it as CustomObjectSerializer<Any>)
         }
     }
 
-    private fun <T : Any> getSer(clazz: KClass<T>): CustomPacketSerializer<T>? {
-        return serializers[clazz] as? CustomPacketSerializer<T>
+    private fun <T : Any> getSer(clazz: KClass<T>): CustomObjectSerializer<T>? {
+        return serializers[clazz] as? CustomObjectSerializer<T>
     }
 
-    fun addSerializer(ser: CustomPacketSerializer<Any>) {
+    fun addSerializer(ser: CustomObjectSerializer<Any>) {
         if (this.serializers.values.find { it.packetId == ser.packetId } != null)
             throw IllegalArgumentException("A serializer for the same packetId has already been registered")
         if (this.serializers[ser.getPacketKClass()] != null)
@@ -54,15 +54,17 @@ class DefaultGlobalSerializer(vararg serializers: CustomPacketSerializer<*>) :
     }
 
     override fun <T : Any> serialize(obj: T, out: ByteBuffer) {
-        val s = getSer(obj::class) as? CustomPacketSerializer<T> ?: throw ClassUnregisteredException(obj::class)
+        val s = getSer(obj::class) as? CustomObjectSerializer<T> ?: throw ClassUnregisteredException(obj::class)
         s.serialize(obj, out)
     }
 }
 
 /**
  * Base class for a custom object serializer. Subclass this to provide a serializer for your class.
+ *
+ * @param T the type of the object to serialize
  */
-abstract class CustomPacketSerializer<T : Any>(val packetId: PacketId, val priority: Int = 0) {
+abstract class CustomObjectSerializer<T : Any>(val packetId: PacketId, val priority: Int = 0) {
 
     /**
      * Override this method to write your own data to the packet.

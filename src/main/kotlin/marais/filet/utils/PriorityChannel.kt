@@ -88,6 +88,7 @@ internal class PriorityChannel<E>(comparator: Comparator<E>) : Channel<E> {
         if (closed)
             throw ClosedReceiveChannelException("No more elem while closed")
 
+        // FIXME probably inefficient
         elem = poll()
         while (elem == null) {
             elem = poll()
