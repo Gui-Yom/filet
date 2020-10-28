@@ -106,7 +106,6 @@ class DummyPacket(val a: Int = 0) {
 ```
 
 ## TODO
- - Integrate kotlinx.serialization
  - Unified address system
  - Allow a server to listen on multiple transports
  - Annotation processing to map objects to packet identifiers at compilation

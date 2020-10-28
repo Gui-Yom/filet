@@ -141,14 +141,13 @@ allprojects {
 }
 
 dependencies {
-    val okioVersion: String by project
-    val coroutinesVersion: String by project
+    val ktxCoroutinesVersion: String by project
 
     implementation(platform(kotlin("bom")))
     implementation(kotlin("stdlib-jdk8"))
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:$coroutinesVersion")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:$coroutinesVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:$ktxCoroutinesVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:$ktxCoroutinesVersion")
 
     // Use the Kotlin test library.
     testImplementation("org.jetbrains.kotlin:kotlin-test")
