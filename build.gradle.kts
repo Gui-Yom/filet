@@ -5,7 +5,6 @@ plugins {
     `java-library`
     `maven-publish`
     id("org.jetbrains.dokka")
-    id("com.github.ben-manes.versions")
 }
 
 subprojects {
@@ -14,7 +13,6 @@ subprojects {
         plugin("java-library")
         plugin("maven-publish")
         plugin("org.jetbrains.dokka")
-        plugin("com.github.ben-manes.versions")
     }
 }
 
@@ -123,20 +121,6 @@ allprojects {
 
              */
         }
-
-        dependencyUpdates {
-            resolutionStrategy {
-                componentSelection {
-                    all {
-                        if (isNonStable(candidate.version) && !isNonStable(currentVersion)) {
-                            reject("Release candidate")
-                        }
-                    }
-                }
-            }
-            checkConstraints = true
-            gradleReleaseChannel = "current"
-        }
     }
 }
 
@@ -153,11 +137,4 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.junit.jupiter:junit-jupiter:5.7.0")
-}
-
-fun isNonStable(version: String): Boolean {
-    val stableKeyword = listOf("RELEASE", "FINAL", "GA").any { version.toUpperCase().contains(it) }
-    val regex = "^[0-9,.v-]+(-r)?$".toRegex()
-    val isStable = stableKeyword || regex.matches(version)
-    return isStable.not()
 }
