@@ -5,10 +5,11 @@ pluginManagement {
     }
 
     val kotlinVersion: String by settings
+    val dokkaVersion: String by settings
 
     plugins {
         kotlin("jvm") version kotlinVersion
-        id("org.jetbrains.dokka") version "$kotlinVersion.2"
+        id("org.jetbrains.dokka") version dokkaVersion
     }
 }
 

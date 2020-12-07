@@ -1,9 +1,6 @@
 package marais.filet
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import marais.filet.pipeline.Pipeline
 import marais.filet.transport.ServerTransport
 import java.util.*
@@ -23,6 +20,7 @@ class Server(internal val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpo
 
     private var acceptJob: Job? = null
 
+    // TODO this list isn't thread safe
     val clients: MutableList<Client> = Collections.synchronizedList(mutableListOf<Client>())
 
     /**
@@ -44,18 +42,25 @@ class Server(internal val scope: CoroutineScope, pipeline: Pipeline) : BaseEndpo
         this.connectionHandler = handler
     }
 
+    /**
+     * The server will start to listen for new connections at this point.
+     */
     suspend fun start(transport: ServerTransport) {
 
         this.transport = transport
 
         transport.init()
+        // will block -> launch on an IO thread
         acceptJob = scope.launch(Dispatchers.IO) {
             // Infinite accept loop
             while (true) {
                 val remote = Client(transport.accept(), this@Server)
 
-                // TODO do not block the accept loop
-                if (connectionHandler(this@Server, remote)) {
+                // FIXME this is still blocking the code (but not the thread)
+                val result = async(Dispatchers.Default) {
+                    connectionHandler(this@Server, remote)
+                }
+                if (result.await()) {
                     remote.start()
                     clients.add(remote)
                 } else {
