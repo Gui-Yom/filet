@@ -1,48 +1,55 @@
 # Filet
-Kotlin library for efficient networking based on coroutines.
+
+Kotlin library for efficient networking based on coroutines. (JVM only)
 
 ## Principles
 
-### Protocol
-Sending multiples messages of variable size over a single connection is challenging.
-For example : sending a large file "clogs the pipe", effectively preventing us
-from sending anything while the transfer isn't finished.
-The solution here is to wrap parts into small packets that won't block the stream for too long.
+Sending multiples messages of variable size over a single connection is challenging. For example : sending a large
+file "clogs the pipe", effectively preventing us from sending anything while the transfer isn't finished. The solution
+here is to wrap parts into small packets that won't block the stream for too long.
 
 #### Packet
-Unit of transmission, sent atomically in one piece.
-Its size is inferior to MAX_PACKET_SIZE, a value set based on the speed of the underlying connection.
-The smaller this value, the more reactive the transmission. However, this will also affect negatively the
-overall efficiency when there are not so many transmissions happening at the same time (less buffering).
-The overhead of a single packet is currently 9 bytes (transmissionId: 4, packetId: 1, length: 4).
-The packet also has a priority, so we can decide whether to send it asap or after other packets.
+
+Unit of transmission, sent atomically in one piece. Its size is inferior to MAX_PACKET_SIZE, a value set based on the
+speed of the underlying connection. The smaller this value, the more reactive the transmission. However, this will also
+affect negatively the overall efficiency when there are not so many transmissions happening at the same time (less
+buffering). The overhead of a single packet is currently (transmissionId: 2, packetId: 2, length: 4) bytes.
 
 ##### Serialization
-Bring your own POJO. Define a custom (de)serializer for it or use a common serialization format.
-Currently, there are integrations for jackson-databind through the `ser-jackson` artifact.
+
+We need to know the objects we send and receive and how we send and receive them. For the first problem we need a
+discriminator. The default encodes the fully qualified class name of the object in the packet header. For serialization,
+define a custom (de)serializer for your class or use a common serialization format. There are currently integrations for
+jackson-databind through the `ser-jackson` artifact.
 
 #### Transmission
-The new problem here is that we receive pieces of data in disorder.
-A transmission is holding those packets together through a common transmission ID sent with each packet.
+
+A transmission is what binds packets together through a common transmission ID sent with each packet. It also has a
+priority, used to sort packets in the send queue.
 
 ### Transport
-Filet itself is built over an abstraction layer for the underlying transport.
-Currently, two implementations for a TCP transport are available. `marais.filet.transport.impl.TcpTransport` directly
-uses Java NIO `AsynchronousSocketChannel`. The other implementation is based on [Ktor](https://ktor.io) raw sockets
-and is provided through the `transport-ktor` artifact.
+
+Filet itself is built over an abstraction layer for the underlying transport. Currently, two implementations for a TCP
+transport are available. `marais.filet.transport.impl.TcpTransport` directly uses Java NIO `AsynchronousSocketChannel`.
+The other implementation is based on [Ktor](https://ktor.io) raw sockets and is provided through the `transport-ktor`
+artifact.
 
 ## Implementation details
+
 ```
 Client -> [Modules (Objects)] -> Serializer -> [Modules (Bytes)] -> Transport
 ```
 
 ### Threading model
-This library is tightly coupled with Kotlin coroutines. Even though its considered bad practice,
-this library will spawn coroutines by itself (e.g. when calling the `start` methods on Client and Server).
-Those coroutines are scheduled to run on Default and IO thread pools.
+
+This library is tightly coupled with Kotlin coroutines. Even though its considered bad practice, this library will spawn
+coroutines by itself (e.g. when calling the `start` methods on Client and Server). Those coroutines are scheduled to run
+on Default and IO thread pools. The coroutine scope is configurable.
 
 ## Installation
+
 With Gradle :
+
 ```kotlin
 repositories {
     // Artifacts are currently only published on Jitpack
@@ -52,16 +59,18 @@ repositories {
 }
 dependencies {
     // Main module
-    implementation("com.github.Gui-Yom.filet:filet:0.5.0")
+    implementation("com.github.Gui-Yom.filet:filet:0.6.0")
     // Additional module to use the ktor sockets transport implementation
-    implementation("com.github.Gui-Yom.filet:transport-ktor:0.5.0")
+    implementation("com.github.Gui-Yom.filet:transport-ktor:0.6.0")
     // Additional module to use jackson databind as the serialization provider
-    implementation("com.github.Gui-Yom.filet:ser-jackson:0.5.0")
+    implementation("com.github.Gui-Yom.filet:ser-jackson:0.6.0")
 }
 ```
 
 ## Example usage (Kotlin)
+
 **Outdated**
+
 ```kotlin
 val server = Server()
 server.registerSerializer(DummyPacket)
@@ -106,13 +115,17 @@ class DummyPacket(val a: Int = 0) {
 ```
 
 ## TODO
- - Unified address system
- - Allow a server to listen on multiple transports
- - Annotation processing to map objects to packet identifiers at compilation
- - provide an UDT transport impl
- - Find something for the jungle of type casts in the serialization system that is making me want to kill myself
- - Implement a buffer swap, or a buffer pool because the repeated buffer allocations makes me want to die even harder
- - Moar documentation
+
+- Unified address system representing the underlying transport, maybe automated discovery through service loader
+- Allow communication on multiple transports
+- Annotation processor to create discriminators for objects at compile time
+- UDT transport
+- JeroMQ transport
+- Find something for the jungle of type casts in the serialization system that is making me want to kill myself (clever
+  use of inline functions)
+- Implement a buffer swap, or a buffer pool because the repeated buffer allocations makes me want to die even harder
+- Moar documentation
 
 ## 1.0.0 ?
+
 When the api is stable enough
