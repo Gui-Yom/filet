@@ -21,7 +21,7 @@ object TcpTransport {
 
         constructor(addr: SocketAddress) : this(AsynchronousSocketChannel.open(), addr)
 
-        constructor(channel: AsynchronousSocketChannel) : this(channel, null) {
+        internal constructor(channel: AsynchronousSocketChannel) : this(channel, null) {
             require(channel.isOpen)
             require(channel.remoteAddress != null)
         }
