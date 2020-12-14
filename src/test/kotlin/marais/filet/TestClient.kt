@@ -36,7 +36,7 @@ object TestClient {
 
             override fun getPacketKClass() = DummyPacket::class
 
-            override fun writeData(obj: DummyPacket, buffer: ByteBuffer): Int {
+            override fun serialize(obj: DummyPacket, buffer: ByteBuffer): Int {
                 buffer.putInt(obj.a)
                 return 4
             }
