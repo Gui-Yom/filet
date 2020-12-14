@@ -136,5 +136,7 @@ dependencies {
     // Use the Kotlin test library.
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-    testImplementation("org.junit.jupiter:junit-jupiter:5.7.0")
+    val junitVersion: String by project
+    testImplementation(platform("org.junit:junit-bom:$junitVersion"))
+    testImplementation("org.junit.jupiter:junit-jupiter-params")
 }

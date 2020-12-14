@@ -82,17 +82,20 @@ internal class PriorityChannel<E>(comparator: Comparator<E>) : Channel<E> {
     }
 
     override suspend fun receive(): E {
+        // relaxed get
         var elem = poll()
         if (elem != null)
             return elem
+
+        // sorry we are closedm
         if (closed)
             throw ClosedReceiveChannelException("No more elem while closed")
 
         // FIXME probably inefficient
         elem = poll()
         while (elem == null) {
-            elem = poll()
             yield()
+            elem = poll()
         }
         return elem
     }
