@@ -8,8 +8,8 @@ import marais.filet.pipeline.BytesModule
 import marais.filet.pipeline.Context
 import marais.filet.pipeline.ObjectModule
 import marais.filet.pipeline.Pipeline
+import marais.filet.queue.PriorityQueue
 import marais.filet.transport.ClientTransport
-import marais.filet.utils.PriorityChannel
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.resume
@@ -46,7 +46,7 @@ class Client(
         this.server = server
     }
 
-    private val queue = PriorityChannel(Comparator.comparingInt(Pair<Int, ByteBuffer>::first).reversed())
+    private val queue = PriorityQueue<ByteBuffer>()
 
     /**
      * Used to generate the transmission id
@@ -134,7 +134,7 @@ class Client(
         // Infinite sender loop on an IO thread
         sendJob = scope.launch(context = Dispatchers.IO) {
             while (true) {
-                val (_, buf) = queue.receive()
+                val buf = queue.receive()
                 val position = buf.position()
                 buf.reset()
                 buf.limit(position)
@@ -207,7 +207,6 @@ class Client(
     override fun close() {
         super.close()
         // Shutdown output
-        queue.close()
         sendJob?.cancel()
         // Shutdown input
         receiveJob?.cancel()
@@ -239,7 +238,7 @@ class Client(
                 buffer.putInt(data.limit()) // length
                 buffer.put(data)
                 // Sends the buffer to the sender loop, the queue will automatically sort buffers based on the priority
-                queue.send(effectivePriority to buffer)
+                queue.send(buffer, effectivePriority)
             }
         }
     }

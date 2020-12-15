@@ -1,9 +1,9 @@
 package marais.filet.pipeline.impl
 
+import marais.filet.contentToString
 import marais.filet.pipeline.BytesModule
 import marais.filet.pipeline.Context
 import marais.filet.pipeline.ObjectModule
-import marais.filet.utils.contentToString
 import java.nio.ByteBuffer
 
 object SoutModule : BytesModule, ObjectModule {

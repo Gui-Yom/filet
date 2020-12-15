@@ -8,24 +8,25 @@ Sending multiples messages of variable size over a single connection is challeng
 file "clogs the pipe", effectively preventing us from sending anything while the transfer isn't finished. The solution
 here is to wrap parts into small packets that won't block the stream for too long.
 
-#### Packet
+### Packet
 
 Unit of transmission, sent atomically in one piece. Its size is inferior to MAX_PACKET_SIZE, a value set based on the
 speed of the underlying connection. The smaller this value, the more reactive the transmission. However, this will also
 affect negatively the overall efficiency when there are not so many transmissions happening at the same time (less
 buffering). The overhead of a single packet is currently (transmissionId: 2, packetId: 2, length: 4) bytes.
 
-##### Serialization
+#### Serialization
 
 We need to know the objects we send and receive and how we send and receive them. For the first problem we need a
 discriminator. The default encodes the fully qualified class name of the object in the packet header. For serialization,
 define a custom (de)serializer for your class or use a common serialization format. There are currently integrations for
 jackson-databind through the `ser-jackson` artifact.
 
-#### Transmission
+### Transmission
 
 A transmission is what binds packets together through a common transmission ID sent with each packet. It also has a
-priority, used to sort packets in the send queue.
+priority, used to sort packets in the send queue. The transmission system is totally optional, you can also use the
+basic middleware for the normal-style behavior.
 
 ### Transport
 
@@ -45,6 +46,11 @@ Client -> [Modules (Objects)] -> Serializer -> [Modules (Bytes)] -> Transport
 This library is tightly coupled with Kotlin coroutines. Even though its considered bad practice, this library will spawn
 coroutines by itself (e.g. when calling the `start` methods on Client and Server). Those coroutines are scheduled to run
 on Default and IO thread pools. The coroutine scope is configurable.
+
+## Notes (QUIC)
+
+This transmission system is very similar in essence and execution to the QUIC protocol. The QUIC specification does
+mention (briefly) a priority system, but the available QUIC libraries does not actually implement it.
 
 ## Installation
 
